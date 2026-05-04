@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
+import { DiceLog, RollEvent } from '../components/DiceLog';
+import { generatePin } from '../utils/pin';
 
 export function HostView() {
   const { roomId, roomPin, setRoom, setIdentity, playerId } = useGameStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<any[]>([]);
+  const [logs, setLogs] = useState<RollEvent[]>([]);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -22,8 +26,10 @@ export function HostView() {
     if (!roomId) return;
     
     const channel = supabase.channel(`room:${roomId}`, {
-      config: { presence: { key: playerId || 'host' } }
+      config: { presence: { key: playerId || 'host' }, broadcast: { self: true } }
     });
+
+    channelRef.current = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -33,6 +39,9 @@ export function HostView() {
           newPlayers.push(...state[id]);
         }
         setPlayers(newPlayers);
+      })
+      .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
+        setLogs(prev => [payload as RollEvent, ...prev].slice(0, 50));
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -63,11 +72,7 @@ export function HostView() {
 
       setIdentity(hostId, true);
 
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let pin = '';
-      for (let i = 0; i < 4; i++) {
-        pin += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+      const pin = generatePin();
 
       const { data, error } = await supabase
         .from('active_rooms')
@@ -85,6 +90,16 @@ export function HostView() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const broadcastContext = (newContext: string) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'game_state_update',
+        payload: { context: newContext }
+      });
     }
   };
 
@@ -134,6 +149,20 @@ export function HostView() {
                   ))}
                 </ul>
               )}
+            </div>
+
+            <div className="border-t border-slate-700 pt-6">
+              <h2 className="text-xl font-semibold mb-4">Set Context</h2>
+              <div className="flex gap-2">
+                <button onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">Exploration</button>
+                <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combat</button>
+                <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-700 pt-6">
+              <h2 className="text-xl font-semibold mb-4">Game Activity</h2>
+              <DiceLog logs={logs} />
             </div>
           </div>
         )}

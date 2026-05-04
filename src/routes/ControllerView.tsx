@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
+import { DiceTray } from '../components/DiceTray';
 
 export function ControllerView() {
-  const { roomId, roomPin, setRoom, setIdentity, gameContext, playerId } = useGameStore();
+  const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId } = useGameStore();
   const [pinInput, setPinInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -23,10 +26,15 @@ export function ControllerView() {
     if (!roomId) return;
     
     const channel = supabase.channel(`room:${roomId}`, {
-      config: { presence: { key: playerId || 'controller' } }
+      config: { presence: { key: playerId || 'controller' }, broadcast: { self: true } }
     });
 
+    channelRef.current = channel;
+
     channel
+      .on('broadcast', { event: 'game_state_update' }, ({ payload }) => {
+        updateGameState(payload.context, []);
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           const { data } = await supabase.auth.getUser();
@@ -87,6 +95,22 @@ export function ControllerView() {
     }
   };
 
+  const handleRoll = (diceType: string, result: number) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'dice_roll',
+        payload: {
+          id: crypto.randomUUID(),
+          playerName,
+          diceType,
+          result,
+          timestamp: Date.now()
+        }
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
       <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center">
@@ -139,11 +163,11 @@ export function ControllerView() {
             
             <div className="border-t border-slate-700 pt-6">
               <h2 className="text-xl font-semibold mb-4">Controller</h2>
-              <div className="bg-slate-900 p-6 rounded-lg">
+              <div className="bg-slate-900 p-6 rounded-lg mb-6">
                 <p className="text-slate-400 text-sm mb-2">Current Context:</p>
                 <p className="text-lg font-bold text-emerald-400">{gameContext}</p>
               </div>
-              {/* TODO: Add actionable buttons here based on context */}
+              <DiceTray onRoll={handleRoll} />
             </div>
           </div>
         )}
