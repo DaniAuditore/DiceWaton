@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
-import { DiceLog, RollEvent } from '../components/DiceLog';
+import { DiceLog, type RollEvent } from '../components/DiceLog';
 import { generatePin } from '../utils/pin';
 
 export function HostView() {

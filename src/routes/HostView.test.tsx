@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
-import React from 'react';
+
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
