@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
