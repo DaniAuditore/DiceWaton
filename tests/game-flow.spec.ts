@@ -24,6 +24,23 @@ test.describe('Room creation, join, and action flow', () => {
 
     // 2. Controller joins
     await controllerPage.goto('/controller');
+
+    // Auth is now required in ControllerView.
+    const uniqueEmail = `dicewaton-e2e-${Date.now()}@example.com`;
+    const password = 'Password123!';
+
+    await controllerPage.click('text=Don\'t have an account? Sign up');
+    await controllerPage.fill('input[placeholder="player@example.com"]', uniqueEmail);
+    await controllerPage.fill('input[placeholder="••••••••"]', password);
+    await controllerPage.click('button:has-text("Sign Up")');
+
+    // Try direct sign in after sign up in case email auto-confirm is enabled.
+    await controllerPage.click('text=Already have an account? Sign in');
+    await controllerPage.fill('input[placeholder="player@example.com"]', uniqueEmail);
+    await controllerPage.fill('input[placeholder="••••••••"]', password);
+    await controllerPage.click('button:has-text("Sign In")');
+
+    await expect(controllerPage.getByText('Join Game')).toBeVisible({ timeout: 15000 });
     
     await controllerPage.fill('input[placeholder="Your Name"]', 'Ender');
     await controllerPage.fill('input[placeholder="Enter 4-char PIN"]', pin || '');

@@ -3,6 +3,7 @@ import { RealtimeChannel, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceTray } from '../components/DiceTray';
+import { MacroManager } from '../components/MacroManager';
 import { AuthForm } from '../components/AuthForm';
 
 export function ControllerView() {
@@ -202,6 +203,7 @@ export function ControllerView() {
                 <p className="text-lg font-bold text-emerald-400">{gameContext}</p>
               </div>
               <DiceTray onRoll={handleRoll} />
+              <MacroManager onRoll={handleRoll} />
             </div>
           </div>
         )}
