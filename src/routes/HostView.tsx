@@ -12,6 +12,26 @@ export function HostView() {
   const [logs, setLogs] = useState<RollEvent[]>([]);
   const channelRef = useRef<any>(null);
 
+  const ensureAnonymousHostUser = async () => {
+    let { data: authData } = await supabase.auth.getUser();
+
+    if (!authData.user) {
+      const { error: signInError } = await supabase.auth.signInAnonymously();
+      if (signInError) {
+        throw signInError;
+      }
+
+      const refreshed = await supabase.auth.getUser();
+      authData = refreshed.data;
+    }
+
+    if (!authData.user?.id) {
+      throw new Error('Not authenticated');
+    }
+
+    return authData.user.id;
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const { data } = await supabase.auth.getSession();
@@ -63,12 +83,7 @@ export function HostView() {
     setLoading(true);
     setError(null);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const hostId = authData.user?.id;
-
-      if (!hostId) {
-        throw new Error('Not authenticated');
-      }
+      const hostId = await ensureAnonymousHostUser();
 
       setIdentity(hostId, true);
 

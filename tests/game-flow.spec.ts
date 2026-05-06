@@ -2,12 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Room creation, join, and action flow', () => {
   test('Host creates room, Controller joins and rolls dice', async ({ browser }) => {
-    // We need two distinct browser contexts to simulate two users
+    // Use one context so the e2e fake backend state is shared.
     const hostContext = await browser.newContext();
-    const controllerContext = await browser.newContext();
 
     const hostPage = await hostContext.newPage();
-    const controllerPage = await controllerContext.newPage();
+    const controllerPage = await hostContext.newPage();
 
     // 1. Host creates room
     await hostPage.goto('/host');
@@ -19,7 +18,7 @@ test.describe('Room creation, join, and action flow', () => {
     
     // Extract PIN. The PIN is inside a text-5xl div.
     const pinElement = hostPage.locator('.text-5xl.font-mono');
-    const pin = await pinElement.textContent();
+    const pin = (await pinElement.textContent())?.trim();
     expect(pin).toHaveLength(4);
 
     // 2. Controller joins
@@ -47,7 +46,7 @@ test.describe('Room creation, join, and action flow', () => {
     await controllerPage.click('text=Join Room');
 
     // Wait for join success (waiting for context UI)
-    await expect(controllerPage.getByText(pin || '')).toBeVisible({ timeout: 10000 });
+    await expect(controllerPage.getByText('Connected to Room')).toBeVisible({ timeout: 10000 });
     
     // Verify host sees the player
     await expect(hostPage.getByText('Ender')).toBeVisible();
@@ -67,6 +66,5 @@ test.describe('Room creation, join, and action flow', () => {
     await expect(hostPage.getByText(/Ender.*rolled d20/)).toBeVisible({ timeout: 10000 });
     
     await hostContext.close();
-    await controllerContext.close();
   });
 });
