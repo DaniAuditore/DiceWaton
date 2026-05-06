@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceTray } from '../components/DiceTray';
+import { AuthForm } from '../components/AuthForm';
 
 export function ControllerView() {
   const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId } = useGameStore();
@@ -10,16 +11,23 @@ export function ControllerView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        await supabase.auth.signInAnonymously();
-      }
-    };
-    initAuth();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -65,8 +73,7 @@ export function ControllerView() {
     setLoading(true);
     setError(null);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const pId = authData.user?.id;
+      const pId = session?.user?.id;
 
       if (!pId) {
         throw new Error('Not authenticated');
@@ -111,6 +118,18 @@ export function ControllerView() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
+        <div className="text-cyan-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthForm />;
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
       <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center">
@@ -153,12 +172,27 @@ export function ControllerView() {
                 {loading ? 'Joining...' : 'Join Room'}
               </button>
             </form>
+            
+            <button 
+              onClick={() => supabase.auth.signOut()} 
+              className="mt-6 text-sm text-slate-400 hover:text-white"
+            >
+              Sign Out
+            </button>
           </>
         ) : (
           <div className="space-y-6">
-            <div className="bg-slate-900 p-4 rounded-lg">
-              <p className="text-slate-400 text-sm mb-1">Connected to Room</p>
-              <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
+            <div className="bg-slate-900 p-4 rounded-lg flex justify-between items-center">
+              <div>
+                <p className="text-slate-400 text-sm mb-1 text-left">Connected to Room</p>
+                <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
+              </div>
+              <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="text-sm text-slate-400 hover:text-white"
+              >
+                Sign Out
+              </button>
             </div>
             
             <div className="border-t border-slate-700 pt-6">
