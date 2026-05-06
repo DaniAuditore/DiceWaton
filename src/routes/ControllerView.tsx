@@ -16,15 +16,18 @@ export function ControllerView() {
   const [authLoading, setAuthLoading] = useState(true);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
+  type AuthSessionResponse = { data: { session: Session | null } };
+  type BroadcastPayload = { payload: { context: unknown } };
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: AuthSessionResponse) => {
       setSession(session);
       setAuthLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       setSession(session);
     });
 
@@ -41,10 +44,10 @@ export function ControllerView() {
     channelRef.current = channel;
 
     channel
-      .on('broadcast', { event: 'game_state_update' }, ({ payload }) => {
-        updateGameState(payload.context, []);
+      .on('broadcast', { event: 'game_state_update' }, ({ payload }: BroadcastPayload) => {
+        updateGameState(payload.context as any, []);
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           const { data } = await supabase.auth.getUser();
           await channel.track({ 

@@ -48,11 +48,15 @@ const setSession = (session: AuthSession | null) => {
 
 class FakeChannel {
   private bc: BroadcastChannel;
+  private channelName: string;
   private handlers: Array<{ type: string; event?: string; cb: (payload?: any) => void }> = [];
   private presence: Record<string, any[]> = {};
+  private presenceKey?: string;
 
-  constructor(private name: string, private presenceKey?: string) {
-    this.bc = new BroadcastChannel(`dw:e2e:${name}`);
+  constructor(name: string, presenceKey?: string) {
+    this.channelName = name;
+    this.presenceKey = presenceKey;
+    this.bc = new BroadcastChannel(`dw:e2e:${this.channelName}`);
     this.bc.onmessage = (event) => {
       const message = event.data;
 
@@ -106,8 +110,11 @@ class QueryBuilder {
   private insertPayload: any[] = [];
   private updatePayload: any = null;
   private deleteMode = false;
+  private table: 'active_rooms' | 'macros';
 
-  constructor(private table: 'active_rooms' | 'macros') {}
+  constructor(table: 'active_rooms' | 'macros') {
+    this.table = table;
+  }
 
   insert(payload: any | any[]) {
     this.insertPayload = Array.isArray(payload) ? payload : [payload];

@@ -60,10 +60,10 @@ export function HostView() {
         }
         setPlayers(newPlayers);
       })
-      .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
+      .on('broadcast', { event: 'dice_roll' }, ({ payload }: { payload: unknown }) => {
         setLogs(prev => [payload as RollEvent, ...prev].slice(0, 50));
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           const { data } = await supabase.auth.getUser();
           await channel.track({ 
