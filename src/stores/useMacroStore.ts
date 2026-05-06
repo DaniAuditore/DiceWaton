@@ -17,7 +17,7 @@ interface MacroState {
   deleteMacro: (id: string) => Promise<void>;
 }
 
-export const useMacroStore = create<MacroState>((set, get) => ({
+export const useMacroStore = create<MacroState>((set) => ({
   macros: [],
   loading: false,
 

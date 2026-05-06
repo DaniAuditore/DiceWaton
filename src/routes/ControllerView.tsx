@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RealtimeChannel, Session } from '@supabase/supabase-js';
+import { RealtimeChannel, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceTray } from '../components/DiceTray';

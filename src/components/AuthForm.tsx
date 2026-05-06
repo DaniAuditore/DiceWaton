@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Dice5 } from 'lucide-react';
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
@@ -36,7 +35,7 @@ export function AuthForm() {
       <div className="w-full max-w-md rounded-xl border border-cyan-900/50 bg-gray-900/80 p-8 shadow-2xl backdrop-blur-sm">
         <div className="mb-8 flex flex-col items-center justify-center">
           <div className="mb-4 rounded-full bg-cyan-950 p-4 shadow-[0_0_15px_rgba(6,182,212,0.3)] border border-cyan-800/50">
-            <Dice5 className="h-10 w-10 text-cyan-400" />
+            <span className="text-3xl" aria-hidden="true">🎲</span>
           </div>
           <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             DiceWaton

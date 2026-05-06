@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
@@ -55,5 +55,16 @@ describe('Supabase integration lifecycle in HostView', () => {
     // Verify cleanup
     unmount();
     expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel);
+  });
+
+  it('keeps host access anonymous without auth form', async () => {
+    render(<HostView />);
+
+    await waitFor(() => {
+      expect(supabase.auth.signInAnonymously).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('Host a Game')).toBeTruthy();
+    expect(screen.queryByText('Sign in to your account')).toBeNull();
   });
 });
