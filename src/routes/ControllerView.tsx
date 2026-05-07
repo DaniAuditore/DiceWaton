@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { RealtimeChannel, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { useGameStore } from '../stores/useGameStore';
+import { useGameStore, type GameContext } from '../stores/useGameStore';
 import { DiceTray } from '../components/DiceTray';
 import { MacroManager } from '../components/MacroManager';
 import { AuthForm } from '../components/AuthForm';
@@ -11,12 +11,15 @@ import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { FieldError } from '../components/ui/FieldError';
 import { FormField } from '../components/ui/FormField';
+import { ScopedStatus } from '../components/ui/ScopedStatus';
 import { TextInput } from '../components/ui/TextInput';
 import { useUiStore } from '../stores/useUiStore';
 
 export function ControllerView() {
-  const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId } = useGameStore();
-  const [pinInput, setPinInput] = useState('');
+  const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId, reset } = useGameStore();
+  const [searchParams] = useSearchParams();
+  const intendedPin = searchParams.get('pin')?.slice(0, 4).toUpperCase() ?? null;
+  const [pinInput, setPinInput] = useState(intendedPin ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
@@ -24,6 +27,8 @@ export function ControllerView() {
   const [authLoading, setAuthLoading] = useState(true);
   const [logs, setLogs] = useState<RollEvent[]>([]);
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; pin?: string }>({});
+  const [realtimeReady, setRealtimeReady] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(Boolean(roomId && roomPin));
   const channelRef = useRef<RealtimeChannel | null>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
 
@@ -60,6 +65,12 @@ export function ControllerView() {
   }, []);
 
   useEffect(() => {
+    if (intendedPin && !roomId) {
+      setUiStatus('controller-join', 'empty', `PIN ${intendedPin} preparado. Iniciá sesión y confirmá tu nombre para unirte.`);
+    }
+  }, [intendedPin, roomId, setUiStatus]);
+
+  useEffect(() => {
     if (!roomId) return;
     
     const channel = supabase.channel(`room:${roomId}`, {
@@ -67,16 +78,20 @@ export function ControllerView() {
     });
 
     channelRef.current = channel;
+    setUiStatus('controller-realtime', 'loading', 'Conectando con la sala...');
 
     channel
       .on('broadcast', { event: 'game_state_update' }, ({ payload }: BroadcastPayload) => {
-        updateGameState(payload.context as any, []);
+        updateGameState(payload.context as GameContext, []);
+        setUiStatus('controller-realtime', 'success', `Contexto actualizado: ${payload.context}.`);
       })
       .on('broadcast', { event: 'dice_roll' }, ({ payload }: { payload: unknown }) => {
         setLogs(prev => [payload as RollEvent, ...prev].slice(0, 50));
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
+          setRealtimeReady(true);
+          setUiStatus('controller-realtime', 'success', 'Conectado a la sala en tiempo real.');
           const { data } = await supabase.auth.getUser();
           await channel.track({ 
             id: data.user?.id, 
@@ -88,8 +103,12 @@ export function ControllerView() {
 
     return () => {
       supabase.removeChannel(channel);
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
+      setRealtimeReady(false);
     };
-  }, [roomId, playerId, playerName]);
+  }, [roomId, playerId, playerName, setUiStatus, updateGameState]);
 
   const joinRoom = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +134,7 @@ export function ControllerView() {
       const pId = session?.user?.id;
 
       if (!pId) {
+        setUiStatus('controller-join', 'error', 'Necesitás iniciar sesión antes de unirte. Conservamos el PIN para que lo uses después.');
         throw new Error('Not authenticated');
       }
 
@@ -134,8 +154,9 @@ export function ControllerView() {
       }
 
       setRoom(data.id, data.pin);
+      setShowRecovery(false);
       setUiStatus('controller-join', 'success', 'Ingreso exitoso a la sala.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = getJoinErrorMessage(err);
       setError(message);
       setUiStatus('controller-join', 'error', message);
@@ -143,6 +164,23 @@ export function ControllerView() {
       setLoading(false);
     }
   }, [pinInput, playerName, setIdentity, setRoom, session?.user?.id, setUiStatus]);
+
+  const leaveRoom = useCallback(() => {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    setLogs([]);
+    setRealtimeReady(false);
+    reset();
+    setShowRecovery(false);
+    setUiStatus('controller-join', 'success', 'Saliste de la sala. Tu sesión sigue abierta.');
+  }, [reset, setUiStatus]);
+
+  const continueStoredRoom = useCallback(() => {
+    setShowRecovery(false);
+    setUiStatus('controller-join', 'success', `Continuás en la sala ${roomPin}.`);
+  }, [roomPin, setUiStatus]);
 
   const handleRoll = useCallback((diceType: string, result: number, details?: string) => {
     if (channelRef.current) {
@@ -172,7 +210,7 @@ export function ControllerView() {
   }
 
   if (!session) {
-    return <AuthForm />;
+    return <AuthForm intendedPin={intendedPin ?? roomPin} />;
   }
 
   return (
@@ -184,7 +222,9 @@ export function ControllerView() {
             <div className="mb-4 text-left">
               <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
             </div>
-            
+            <p className="mb-4 text-sm text-slate-300">Ingresá tu nombre y el PIN. Si no iniciaste sesión, primero te vamos a pedir autenticarte.</p>
+            <ScopedStatus scope="controller-join" />
+             
             {error ? <AlertBanner tone="error" title="No pudimos unirte a la sala" message={error} /> : null}
 
             <form onSubmit={joinRoom} className="space-y-4" noValidate>
@@ -241,26 +281,53 @@ export function ControllerView() {
           </>
         ) : (
           <div className="space-y-6">
+            {showRecovery ? (
+              <AlertBanner
+                tone="info"
+                title="Sala guardada encontrada"
+                message={`Encontramos la sala ${roomPin}. Podés continuar o salir sin cerrar sesión.`}
+              />
+            ) : null}
+            {showRecovery ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button type="button" onClick={continueStoredRoom}>Continuar en sala {roomPin}</Button>
+                <Button type="button" variant="secondary" onClick={leaveRoom}>Salir</Button>
+              </div>
+            ) : null}
             <div className="bg-slate-900 p-4 rounded-lg flex justify-between items-center">
               <div>
                 <p className="text-slate-400 text-sm mb-1 text-left">Conectado a la sala</p>
                 <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
               </div>
-              <button 
-                onClick={() => supabase.auth.signOut()} 
-                className="text-sm text-slate-400 hover:text-white"
-              >
-                Cerrar sesión
-              </button>
+              <div className="flex flex-col gap-2 text-right">
+                <button 
+                  onClick={leaveRoom} 
+                  className="text-sm text-slate-300 hover:text-white"
+                >
+                  Salir de esta sala
+                </button>
+                <button 
+                  onClick={() => supabase.auth.signOut()} 
+                  className="text-sm text-slate-400 hover:text-white"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
             </div>
-            
+            <ScopedStatus scope="controller-realtime" />
+            <ScopedStatus scope="controller-join" />
+             
             <div className="border-t border-slate-700 pt-6">
                 <h2 className="text-xl font-semibold mb-4">Controlador</h2>
               <div className="bg-slate-900 p-6 rounded-lg mb-6">
                   <p className="text-slate-400 text-sm mb-2">Contexto actual:</p>
                 <p className="text-lg font-bold text-emerald-400">{gameContext}</p>
               </div>
-              <DiceTray onRoll={handleRoll} />
+              <DiceTray
+                onRoll={handleRoll}
+                disabled={!realtimeReady}
+                disabledMessage="Esperá a que la sala confirme la conexión en tiempo real antes de tirar."
+              />
               <MacroManager onRoll={handleRoll} />
               <DiceLog logs={logs} />
             </div>

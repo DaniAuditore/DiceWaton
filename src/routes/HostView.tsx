@@ -6,10 +6,11 @@ import { DiceLog, type RollEvent } from '../components/DiceLog';
 import { generatePin } from '../utils/pin';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
+import { ScopedStatus } from '../components/ui/ScopedStatus';
 import { useUiStore } from '../stores/useUiStore';
 
 export function HostView() {
-  const { roomId, roomPin, setRoom, setIdentity, playerId } = useGameStore();
+  const { roomId, roomPin, setRoom, setIdentity, playerId, reset } = useGameStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<any[]>([]);
@@ -55,6 +56,7 @@ export function HostView() {
     });
 
     channelRef.current = channel;
+    setUiStatus('host-realtime', 'loading', 'Conectando sala en tiempo real...');
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -82,8 +84,11 @@ export function HostView() {
 
     return () => {
       supabase.removeChannel(channel);
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
     };
-  }, [roomId, playerId]);
+  }, [roomId, playerId, setUiStatus]);
 
   const createRoom = useCallback(async () => {
     setLoading(true);
@@ -124,8 +129,64 @@ export function HostView() {
         event: 'game_state_update',
         payload: { context: newContext }
       });
+      setUiStatus('host-context', 'success', `Contexto enviado: ${newContext}.`);
+    } else {
+      setUiStatus('host-context', 'error', 'La sala todavía no está conectada. Reintentá en unos segundos.');
     }
-  }, []);
+  }, [setUiStatus]);
+
+  const closeRoom = useCallback(() => {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    setPlayers([]);
+    setLogs([]);
+    reset();
+    setUiStatus('host-room', 'success', 'Sala cerrada. Podés crear una nueva cuando quieras.');
+  }, [reset, setUiStatus]);
+
+  const copyRoomPin = useCallback(async () => {
+    if (!roomPin) return;
+
+    try {
+      await navigator.clipboard.writeText(roomPin);
+      setUiStatus('room-pin', 'success', `PIN ${roomPin} copiado al portapapeles.`);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = roomPin;
+      textArea.setAttribute('readonly', 'true');
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setUiStatus(
+        'room-pin',
+        copied ? 'success' : 'error',
+        copied ? `PIN ${roomPin} copiado al portapapeles.` : `No pudimos copiar el PIN. Copialo manualmente: ${roomPin}.`,
+      );
+    }
+  }, [roomPin, setUiStatus]);
+
+  const shareRoomPin = useCallback(async () => {
+    if (!roomPin) return;
+
+    const shareText = `Unite a mi sala de DiceWaton con el PIN ${roomPin}.`;
+    if ('share' in navigator) {
+      try {
+        await navigator.share({ title: 'DiceWaton', text: shareText });
+        setUiStatus('room-pin', 'success', 'Invitación compartida.');
+        return;
+      } catch {
+        setUiStatus('room-pin', 'error', `No pudimos compartir. Copiá el PIN manualmente: ${roomPin}.`);
+        return;
+      }
+    }
+
+    await copyRoomPin();
+  }, [copyRoomPin, roomPin, setUiStatus]);
 
   const controllers = useMemo(() => players.filter((p) => !p.isHost), [players]);
 
@@ -136,6 +197,8 @@ export function HostView() {
         <div className="mb-4 text-left">
           <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
         </div>
+        <ScopedStatus scope="host-room" />
+        <ScopedStatus scope="host-realtime" />
         
         {error ? <AlertBanner tone="error" title="No se pudo crear la sala" message={error} onRetry={createRoom} /> : null}
 
@@ -154,6 +217,16 @@ export function HostView() {
               <div className="text-5xl font-mono font-bold tracking-widest text-indigo-400 bg-slate-900 p-4 rounded-lg">
                 {roomPin}
               </div>
+              <p className="mt-2 text-sm text-slate-300">Compartí este PIN: los jugadores lo ingresan en “Unirse a sala”.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button type="button" variant="secondary" onClick={copyRoomPin} aria-label={`Copiar PIN ${roomPin}`}>
+                  Copiar PIN
+                </Button>
+                <Button type="button" variant="secondary" onClick={shareRoomPin}>
+                  Compartir invitación
+                </Button>
+              </div>
+              <ScopedStatus scope="room-pin" className="mt-3 text-left" />
             </div>
             
             <div className="border-t border-slate-700 pt-6">
@@ -181,11 +254,19 @@ export function HostView() {
                  <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combate</button>
                   <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
               </div>
+              <ScopedStatus scope="host-context" className="mt-3 text-left" />
             </div>
 
             <div className="border-t border-slate-700 pt-6">
                <h2 className="text-xl font-semibold mb-4">Actividad de juego</h2>
               <DiceLog logs={logs} />
+            </div>
+
+            <div className="border-t border-slate-700 pt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button type="button" variant="danger" onClick={closeRoom}>Cerrar sala</Button>
+              <Link to="/" className="rounded bg-slate-700 px-4 py-2 font-bold text-white transition-colors hover:bg-slate-600">
+                Volver al inicio
+              </Link>
             </div>
           </div>
         )}

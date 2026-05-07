@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
+import { useUiStore } from '../stores/useUiStore';
 import { supabase } from '../lib/supabase';
 
 
@@ -25,6 +26,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     cleanup();
     vi.clearAllMocks();
     useGameStore.getState().reset();
+    useUiStore.setState({ statusByScope: {}, messageByScope: {} });
     
     // Mock basic auth
     (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
@@ -99,7 +101,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     const button = screen.getAllByRole('button', { name: 'Crear sala' })[0];
     button.click();
 
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect((await screen.findAllByRole('alert')).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 
@@ -115,5 +117,53 @@ describe('Supabase integration lifecycle in HostView', () => {
     expect(await screen.findByText('ABCD')).toBeTruthy();
     expect(screen.getByText('Esperando que se unan jugadores...')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Jugadores (0)' })).toBeTruthy();
+    expect(screen.getByText('Compartí este PIN: los jugadores lo ingresan en “Unirse a sala”.')).toBeTruthy();
+  });
+
+  it('copies the room PIN with accessible feedback', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear sala' }));
+
+    expect(await screen.findByText('ABCD')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar PIN ABCD' }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('ABCD');
+    });
+    expect(screen.getByText('PIN ABCD copiado al portapapeles.')).toBeTruthy();
+  });
+
+  it('closes the hosted room without signing out identity', async () => {
+    useGameStore.getState().setIdentity('host-123', true);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+
+    const mockChannel = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      track: vi.fn().mockResolvedValue({}),
+      presenceState: vi.fn().mockReturnValue({}),
+    };
+    (supabase.channel as any).mockReturnValue(mockChannel);
+
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cerrar sala' }));
+
+    expect(useGameStore.getState().roomId).toBeNull();
+    expect(useGameStore.getState().playerId).toBe('host-123');
+    expect(await screen.findByRole('button', { name: 'Crear sala' })).toBeTruthy();
   });
 });

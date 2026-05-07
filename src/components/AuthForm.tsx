@@ -6,8 +6,13 @@ import { FieldError } from './ui/FieldError';
 import { FormField } from './ui/FormField';
 import { TextInput } from './ui/TextInput';
 import { useUiStore } from '../stores/useUiStore';
+import { Link } from 'react-router-dom';
 
-export function AuthForm() {
+type AuthFormProps = {
+  intendedPin?: string | null;
+};
+
+export function AuthForm({ intendedPin }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,7 +78,14 @@ export function AuthForm() {
           <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             DiceWaton
           </h2>
-            <p className="mt-2 text-sm text-cyan-400/60">{isSignUp ? 'Creá una cuenta nueva' : 'Ingresá a tu cuenta'}</p>
+            <p className="mt-2 text-sm text-cyan-400/60">
+              {isSignUp ? 'Creá una cuenta nueva' : 'Ingresá para unirte a una sala'}
+            </p>
+            <p className="mt-2 text-center text-xs text-cyan-100/70">
+              {intendedPin
+                ? `Después de ingresar vas a poder unirte con el PIN ${intendedPin}.`
+                : 'Unirse a una sala puede requerir iniciar sesión primero.'}
+            </p>
         </div>
 
         {error && (
@@ -137,6 +149,11 @@ export function AuthForm() {
               ? '¿Ya tenés cuenta? Ingresá'
               : '¿No tenés cuenta? Creala'}
           </button>
+          <div className="mt-4">
+            <Link to="/" className="text-sm text-cyan-500 hover:text-cyan-300 transition-colors">
+              Volver al inicio
+            </Link>
+          </div>
         </div>
       </div>
     </div>

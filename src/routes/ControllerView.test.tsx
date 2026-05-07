@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import { ControllerView } from './ControllerView';
 import { useGameStore } from '../stores/useGameStore';
+import { useUiStore } from '../stores/useUiStore';
 import { supabase } from '../lib/supabase';
 
 const mockChannel = {
@@ -48,6 +49,7 @@ describe('ControllerView auth gating', () => {
     mockChannel.on.mockReturnThis();
     mockChannel.subscribe.mockReturnThis();
     useGameStore.getState().reset();
+    useUiStore.setState({ statusByScope: {}, messageByScope: {} });
   });
 
   it('renders auth form when user is unauthenticated', async () => {
@@ -133,7 +135,7 @@ describe('ControllerView auth gating', () => {
 
     fireEvent.submit(screen.getByRole('button', { name: 'Unirse a la sala' }).closest('form') as HTMLFormElement);
 
-    expect(await screen.findByText('Revisá los datos para unirte a la sala.')).toBeTruthy();
+    expect((await screen.findAllByText('Revisá los datos para unirte a la sala.')).length).toBeGreaterThan(0);
     expect(screen.getByText('El nombre es obligatorio.')).toBeTruthy();
     expect(screen.getByText('El PIN debe tener 4 caracteres.')).toBeTruthy();
   });
@@ -154,6 +156,7 @@ describe('ControllerView auth gating', () => {
     );
 
     expect(await screen.findByText('Conectado a la sala')).toBeTruthy();
+    expect(screen.getByText('Sala guardada encontrada')).toBeTruthy();
     expect(screen.getByText('ABCD')).toBeTruthy();
     expect(screen.getByText('COMBAT')).toBeTruthy();
 
@@ -168,5 +171,41 @@ describe('ControllerView auth gating', () => {
     expect(await screen.findByText('Conectado a la sala')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeTruthy();
     expect(screen.queryByText('Unirse a sala')).toBeNull();
+  });
+
+  it('leaves a connected room without signing out', async () => {
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+    useGameStore.getState().setIdentity('controller-1', false);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Salir de esta sala' }));
+
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    expect(useGameStore.getState().roomId).toBeNull();
+    expect(await screen.findByText('Unirse a sala')).toBeTruthy();
+    expect(screen.getByText('Saliste de la sala. Tu sesión sigue abierta.')).toBeTruthy();
+  });
+
+  it('prepares an intended PIN from the URL before joining', async () => {
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/controller?pin=wxyz']}>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('WXYZ')).toBeTruthy();
+    expect(screen.getByText('PIN WXYZ preparado. Iniciá sesión y confirmá tu nombre para unirte.')).toBeTruthy();
   });
 });

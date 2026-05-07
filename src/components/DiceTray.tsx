@@ -4,11 +4,12 @@ import { AlertBanner } from './ui/AlertBanner';
 type DiceTrayProps = {
   onRoll: (diceType: string, result: number) => void | Promise<void>;
   disabled?: boolean;
+  disabledMessage?: string;
 };
 
 const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
 
-export function DiceTray({ onRoll, disabled }: DiceTrayProps) {
+export function DiceTray({ onRoll, disabled, disabledMessage }: DiceTrayProps) {
   const [localRoll, setLocalRoll] = useState<{type: string, result: number} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<{ type: string; result: number } | null>(null);
@@ -39,6 +40,9 @@ export function DiceTray({ onRoll, disabled }: DiceTrayProps) {
   return (
     <div className="bg-slate-900 p-4 rounded-lg">
       <h3 className="text-lg font-semibold mb-3">Bandeja de dados</h3>
+      {disabled && disabledMessage ? (
+        <AlertBanner tone="warning" title="No se pueden tirar dados todavía" message={disabledMessage} />
+      ) : null}
       {error ? (
         <div className="mb-3">
           <AlertBanner

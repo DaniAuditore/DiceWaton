@@ -35,7 +35,9 @@ export const DiceLog = memo(function DiceLog({ logs, error }: { logs: RollEvent[
       <h3 className="text-lg font-semibold sticky top-0 bg-slate-900 pb-2 border-b border-slate-700">Últimas tiradas</h3>
       {error ? <div role="alert" className="text-sm text-red-300">{error}</div> : null}
       {logs.length === 0 ? (
-        <div className="text-slate-500 text-sm italic text-center mt-4">No hay tiradas todavía.</div>
+        <div className="text-slate-500 text-sm italic text-center mt-4">
+          Las tiradas aparecerán acá cuando alguien use la bandeja o un macro.
+        </div>
       ) : renderedLogs}
     </div>
   );
