@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMacroStore } from '../stores/useMacroStore';
-import { formatRollBreakdown, parseAndRollDetailed } from '../utils/dice';
+import { formatRollBreakdown, parseAndRollDetailed, validateDiceExpression } from '../utils/dice';
 import { AlertBanner } from './ui/AlertBanner';
 import { Button } from './ui/Button';
 import { TextInput } from './ui/TextInput';
@@ -19,8 +19,13 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   const [editingName, setEditingName] = useState('');
   const [editingExpression, setEditingExpression] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [addExpressionError, setAddExpressionError] = useState<string | null>(null);
+  const [editExpressionError, setEditExpressionError] = useState<string | null>(null);
+  const [macroRollError, setMacroRollError] = useState<{ id: string; message: string } | null>(null);
   const [lastFailedRoll, setLastFailedRoll] = useState<{ macroName: string; expr: string } | null>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
+  const addExpressionRef = useRef<HTMLInputElement>(null);
+  const editExpressionRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchMacros();
@@ -28,17 +33,27 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !expression.trim()) return;
-    
+    if (!name.trim()) return;
+
+    const validation = validateDiceExpression(expression);
+    if (!validation.ok) {
+      setAddExpressionError(validation.message);
+      setError(null);
+      setUiStatus('macro-crud', 'error', validation.message);
+      addExpressionRef.current?.focus();
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setAddExpressionError(null);
     setUiStatus('macro-crud', 'loading', 'Guardando macro...');
     try {
-      await addMacro(name, expression);
+      await addMacro(name.trim(), validation.normalizedExpression);
       setName('');
       setExpression('');
       setUiStatus('macro-crud', 'success', 'Macro creada.');
-    } catch (err) {
+    } catch {
       setError('No se pudo crear el macro. Probá nuevamente.');
       setUiStatus('macro-crud', 'error', 'No se pudo crear el macro.');
     } finally {
@@ -48,11 +63,20 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
 
   const handleRollMacro = useCallback(async (macroName: string, expr: string) => {
     setError(null);
+    setMacroRollError(null);
     setLastFailedRoll({ macroName, expr });
 
+    const validation = validateDiceExpression(expr);
+    if (!validation.ok) {
+      const message = `No se tiró "${macroName}": ${validation.message}`;
+      setMacroRollError({ id: `${macroName}-${expr}`, message });
+      setUiStatus('macro-roll', 'error', message);
+      return;
+    }
+
     try {
-      const roll = parseAndRollDetailed(expr);
-      await onRoll(`${macroName} (${expr})`, roll.total, formatRollBreakdown(roll));
+      const roll = parseAndRollDetailed(validation.normalizedExpression);
+      await onRoll(`${macroName} (${validation.normalizedExpression})`, roll.total, formatRollBreakdown(roll));
       setUiStatus('macro-roll', 'success', `Macro "${macroName}" ejecutada.`);
     } catch {
       const message = 'No pudimos ejecutar el macro. Reintentá sin perder el contexto actual.';
@@ -65,23 +89,37 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
     setEditingId(id);
     setEditingName(currentName);
     setEditingExpression(currentExpression);
+    setEditExpressionError(null);
+    setMacroRollError(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingName('');
     setEditingExpression('');
+    setEditExpressionError(null);
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editingName.trim() || !editingExpression.trim()) return;
+    if (!editingId || !editingName.trim()) return;
+
+    const validation = validateDiceExpression(editingExpression);
+    if (!validation.ok) {
+      setEditExpressionError(validation.message);
+      setError(null);
+      setUiStatus('macro-crud', 'error', validation.message);
+      editExpressionRef.current?.focus();
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setEditExpressionError(null);
     try {
-      await updateMacro(editingId, editingName.trim(), editingExpression.trim());
+      await updateMacro(editingId, editingName.trim(), validation.normalizedExpression);
       cancelEdit();
       setUiStatus('macro-crud', 'success', 'Macro actualizada.');
-    } catch (err) {
+    } catch {
       setError('No se pudo actualizar el macro.');
       setUiStatus('macro-crud', 'error', 'No se pudo actualizar el macro.');
     } finally {
@@ -125,18 +163,38 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
                     onChange={(e) => setEditingName(e.target.value)}
                     className="px-2 py-1 text-sm"
                     maxLength={20}
+                    aria-label="Nombre del macro"
                   />
-                  <TextInput
-                    value={editingExpression}
-                    onChange={(e) => setEditingExpression(e.target.value)}
-                    className="px-2 py-1 text-sm font-mono"
-                    maxLength={20}
-                  />
+                  <div>
+                    <TextInput
+                      ref={editExpressionRef}
+                      value={editingExpression}
+                      onChange={(e) => {
+                        setEditingExpression(e.target.value);
+                        setEditExpressionError(null);
+                      }}
+                      className="px-2 py-1 text-sm font-mono"
+                      maxLength={20}
+                      invalid={Boolean(editExpressionError)}
+                      aria-label="Expresión del macro"
+                      aria-describedby={editExpressionError ? `macro-edit-error-${macro.id}` : 'macro-expression-help'}
+                    />
+                    {editExpressionError ? (
+                      <p id={`macro-edit-error-${macro.id}`} role="alert" className="mt-1 text-xs text-red-300">
+                        {editExpressionError}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <div>
                   <div className="font-bold text-slate-200">{macro.name}</div>
                   <div className="text-xs text-slate-400 font-mono">{macro.dice_expression}</div>
+                  {macroRollError?.id === `${macro.name}-${macro.dice_expression}` ? (
+                    <p role="alert" className="mt-1 text-xs text-red-300">
+                      {macroRollError.message}
+                    </p>
+                  ) : null}
                 </div>
               )}
               <div className="flex gap-2">
@@ -187,24 +245,42 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
           onChange={(e) => setName(e.target.value)}
           maxLength={20}
           className="flex-1 bg-slate-800 px-3 py-2 text-sm"
+          aria-label="Nombre del nuevo macro"
         />
-        <TextInput
-          type="text"
-          placeholder="Expresión (ej: 8d6)"
-          value={expression}
-          onChange={(e) => setExpression(e.target.value)}
-          maxLength={20}
-          className="w-24 bg-slate-800 px-3 py-2 text-sm"
-        />
+        <div className="w-36">
+          <TextInput
+            ref={addExpressionRef}
+            type="text"
+            placeholder="Expresión (ej: 8d6)"
+            value={expression}
+            onChange={(e) => {
+              setExpression(e.target.value);
+              setAddExpressionError(null);
+            }}
+            maxLength={20}
+            invalid={Boolean(addExpressionError)}
+            className="bg-slate-800 px-3 py-2 text-sm font-mono"
+            aria-label="Expresión del nuevo macro"
+            aria-describedby={addExpressionError ? 'macro-expression-error' : 'macro-expression-help'}
+          />
+          {addExpressionError ? (
+            <p id="macro-expression-error" role="alert" className="mt-1 text-xs text-red-300">
+              {addExpressionError}
+            </p>
+          ) : null}
+        </div>
         <Button
           type="submit"
-          disabled={loading || !name.trim() || !expression.trim()}
+          disabled={loading || !name.trim()}
           loading={loading}
           className="py-2 px-3"
         >
           Agregar
         </Button>
       </form>
+      <p id="macro-expression-help" className="mt-2 text-xs text-slate-400">
+        Sintaxis aceptada: 1d20+5, d6, 8d6 o modificadores como 2d6-1.
+      </p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { formatRollBreakdown, parseAndRoll, parseAndRollDetailed } from './dice';
+import { formatRollBreakdown, parseAndRoll, parseAndRollDetailed, validateDiceExpression } from './dice';
 
 describe('dice util', () => {
   it('parses flat modifiers', () => {
@@ -38,5 +38,21 @@ describe('dice util', () => {
     expect(formatRollBreakdown(result)).toBe('2d6[1,4] +1');
 
     randomSpy.mockRestore();
+  });
+
+  it('validates accepted macro expressions without changing current roll behavior', () => {
+    expect(validateDiceExpression('1d20+5')).toEqual({ ok: true, normalizedExpression: '1d20+5' });
+    expect(validateDiceExpression(' d6 ')).toEqual({ ok: true, normalizedExpression: 'd6' });
+    expect(validateDiceExpression('8d6')).toEqual({ ok: true, normalizedExpression: '8d6' });
+    expect(validateDiceExpression('2d6-1')).toEqual({ ok: true, normalizedExpression: '2d6-1' });
+    expect(validateDiceExpression('-3')).toEqual({ ok: true, normalizedExpression: '-3' });
+  });
+
+  it('rejects invalid macro expressions that would otherwise fail silently', () => {
+    expect(validateDiceExpression('')).toMatchObject({ ok: false });
+    expect(validateDiceExpression('abc')).toMatchObject({ ok: false });
+    expect(validateDiceExpression('2d6+')).toMatchObject({ ok: false });
+    expect(validateDiceExpression('0d6')).toMatchObject({ ok: false });
+    expect(validateDiceExpression('2d0')).toMatchObject({ ok: false });
   });
 });

@@ -11,11 +11,64 @@ export type RollResult = {
   terms: RollBreakdownTerm[];
 };
 
+export type DiceExpressionValidation =
+  | { ok: true; normalizedExpression: string }
+  | { ok: false; message: string };
+
+function getDiceExpressionTerms(expression: string): { normalizedExpression: string; terms: string[] } {
+  const normalizedExpression = expression.replace(/\s+/g, '').toLowerCase();
+  const safeExpression = normalizedExpression.startsWith('-') ? normalizedExpression : '+' + normalizedExpression;
+
+  return {
+    normalizedExpression,
+    terms: safeExpression.match(/[+-][^+-]+/g) || [],
+  };
+}
+
+export function validateDiceExpression(expression: string): DiceExpressionValidation {
+  const { normalizedExpression, terms } = getDiceExpressionTerms(expression);
+
+  if (!normalizedExpression) {
+    return { ok: false, message: 'Completá la expresión. Usá formato como 1d20+5 o 8d6.' };
+  }
+
+  if (!/^[+-]?(?:\d*d\d+|\d+)(?:[+-](?:\d*d\d+|\d+))*$/.test(normalizedExpression)) {
+    return {
+      ok: false,
+      message: `No entendimos "${expression.trim()}": usá dados NdM, dM o números unidos con +/-. Ejemplo: 1d20+5.`,
+    };
+  }
+
+  if (terms.length === 0) {
+    return { ok: false, message: 'Agregá al menos un dado o modificador. Ejemplo: 1d20+5.' };
+  }
+
+  for (const term of terms) {
+    const value = term.substring(1);
+    const diceMatch = value.match(/^(\d*)d(\d+)$/);
+
+    if (!diceMatch) {
+      continue;
+    }
+
+    const count = diceMatch[1] ? parseInt(diceMatch[1], 10) : 1;
+    const sides = parseInt(diceMatch[2], 10);
+
+    if (count <= 0) {
+      return { ok: false, message: 'La cantidad de dados debe ser mayor a 0. Ejemplo válido: 1d20.' };
+    }
+
+    if (sides <= 0) {
+      return { ok: false, message: 'Las caras del dado deben ser mayores a 0. Ejemplo válido: 1d20.' };
+    }
+  }
+
+  return { ok: true, normalizedExpression };
+}
+
 export function parseAndRollDetailed(expression: string): RollResult {
-  const exp = expression.replace(/\s+/g, '').toLowerCase();
+  const { normalizedExpression: exp, terms } = getDiceExpressionTerms(expression);
   let total = 0;
-  const safeExp = exp.startsWith('-') ? exp : '+' + exp;
-  const terms = safeExp.match(/[+-][^+-]+/g) || [];
   const breakdown: RollBreakdownTerm[] = [];
 
   for (const term of terms) {
