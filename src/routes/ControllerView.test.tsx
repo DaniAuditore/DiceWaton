@@ -76,7 +76,7 @@ describe('ControllerView auth gating', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Join Game')).toBeTruthy();
+      expect(screen.getByText('Unirse a sala')).toBeTruthy();
     });
   });
 
@@ -112,7 +112,7 @@ describe('ControllerView auth gating', () => {
       },
     });
 
-    expect(await screen.findByText('rolled Fireball (2d6+1)')).toBeTruthy();
+    expect(await screen.findByText('tiró Fireball (2d6+1)')).toBeTruthy();
     expect(screen.getByText('2d6[3,4] +1')).toBeTruthy();
   });
 
@@ -128,10 +128,10 @@ describe('ControllerView auth gating', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Join Game')).toBeTruthy();
+      expect(screen.getByText('Unirse a sala')).toBeTruthy();
     });
 
-    fireEvent.submit(screen.getByRole('button', { name: 'Join Room' }).closest('form') as HTMLFormElement);
+    fireEvent.submit(screen.getByRole('button', { name: 'Unirse a la sala' }).closest('form') as HTMLFormElement);
 
     expect(await screen.findByText('Revisá los datos para unirte a la sala.')).toBeTruthy();
     expect(screen.getByText('El nombre es obligatorio.')).toBeTruthy();

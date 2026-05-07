@@ -74,7 +74,7 @@ describe('Supabase integration lifecycle in HostView', () => {
       expect(supabase.auth.signInAnonymously).toHaveBeenCalled();
     });
 
-    expect(screen.getByText('Host a Game')).toBeTruthy();
+    expect(screen.getByText('Administrar sala')).toBeTruthy();
     expect(screen.queryByText('Sign in to your account')).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe('Supabase integration lifecycle in HostView', () => {
       </MemoryRouter>
     );
 
-    const button = screen.getAllByRole('button', { name: 'Create Room' })[0];
+    const button = screen.getAllByRole('button', { name: 'Crear sala' })[0];
     button.click();
 
     expect(await screen.findByRole('alert')).toBeTruthy();

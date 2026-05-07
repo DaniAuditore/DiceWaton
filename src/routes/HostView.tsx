@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
@@ -85,7 +85,7 @@ export function HostView() {
     };
   }, [roomId, playerId]);
 
-  const createRoom = async () => {
+  const createRoom = useCallback(async () => {
     setLoading(true);
     setError(null);
     setUiStatus('host-room', 'loading', 'Creando sala...');
@@ -115,9 +115,9 @@ export function HostView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setIdentity, setRoom, setUiStatus]);
 
-  const broadcastContext = (newContext: string) => {
+  const broadcastContext = useCallback((newContext: string) => {
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -125,14 +125,14 @@ export function HostView() {
         payload: { context: newContext }
       });
     }
-  };
+  }, []);
 
-  const controllers = players.filter(p => !p.isHost);
+  const controllers = useMemo(() => players.filter((p) => !p.isHost), [players]);
 
   return (
     <main className="app-shell">
       <section className="app-card text-center">
-        <h1 className="text-3xl font-bold mb-6">Host a Game</h1>
+        <h1 className="text-3xl font-bold mb-6">Administrar sala</h1>
         <div className="mb-4 text-left">
           <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
         </div>
@@ -145,29 +145,29 @@ export function HostView() {
             loading={loading}
             className="w-full"
           >
-            Create Room
+            Crear sala
           </Button>
         ) : (
           <div className="space-y-6">
             <div>
-              <p className="text-slate-400 text-sm mb-1">Room PIN</p>
+              <p className="text-slate-400 text-sm mb-1">PIN de sala</p>
               <div className="text-5xl font-mono font-bold tracking-widest text-indigo-400 bg-slate-900 p-4 rounded-lg">
                 {roomPin}
               </div>
             </div>
             
             <div className="border-t border-slate-700 pt-6">
-              <h2 className="text-xl font-semibold mb-4">Players ({controllers.length})</h2>
+              <h2 className="text-xl font-semibold mb-4">Jugadores ({controllers.length})</h2>
                {controllers.length === 0 ? (
                  <div className="text-slate-400 text-sm italic">
-                   Waiting for players to join...
+                    Esperando que se unan jugadores...
                  </div>
               ) : (
                 <ul className="space-y-2">
                   {controllers.map((p, i) => (
                     <li key={i} className="bg-slate-700 p-3 rounded-lg flex items-center justify-between">
                       <span className="font-semibold">{p.name}</span>
-                      <span className="text-xs text-emerald-400">Connected</span>
+                       <span className="text-xs text-emerald-400">Conectado</span>
                     </li>
                   ))}
                 </ul>
@@ -175,16 +175,16 @@ export function HostView() {
             </div>
 
             <div className="border-t border-slate-700 pt-6">
-              <h2 className="text-xl font-semibold mb-4">Set Context</h2>
+               <h2 className="text-xl font-semibold mb-4">Contexto de juego</h2>
               <div className="flex gap-2">
-                <button onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">Exploration</button>
+                 <button onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">Exploración</button>
                 <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combat</button>
-                <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
+                 <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
               </div>
             </div>
 
             <div className="border-t border-slate-700 pt-6">
-              <h2 className="text-xl font-semibold mb-4">Game Activity</h2>
+               <h2 className="text-xl font-semibold mb-4">Actividad de juego</h2>
               <DiceLog logs={logs} />
             </div>
           </div>

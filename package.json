@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
+    "test:a11y": "vitest run --config vitest.config.ts --include src/routes/ux-quality-gate.a11y.test.tsx",
     "test:e2e": "playwright test",
     "security:sast": "semgrep scan --config .semgrep/security.yml --json --output semgrep-report.json",
     "security:secrets": "gitleaks detect --report-format json --report-path gitleaks-report.json --redact --no-git",
@@ -35,6 +36,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "axe-core": "^4.11.4",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -45,6 +47,7 @@
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
     "vite-plugin-pwa": "^1.3.0",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "vitest-axe": "^0.1.0"
   }
 }

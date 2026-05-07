@@ -73,9 +73,7 @@ export function AuthForm() {
           <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             DiceWaton
           </h2>
-          <p className="mt-2 text-sm text-cyan-400/60">
-            {isSignUp ? 'Create a new account' : 'Sign in to your account'}
-          </p>
+            <p className="mt-2 text-sm text-cyan-400/60">{isSignUp ? 'Creá una cuenta nueva' : 'Ingresá a tu cuenta'}</p>
         </div>
 
         {error && (
@@ -85,7 +83,7 @@ export function AuthForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-          <FormField id="auth-email" label="Email" error={fieldErrors.email}>
+          <FormField id="auth-email" label="Correo electrónico" error={fieldErrors.email}>
             <TextInput
               ref={emailRef}
               id="auth-email"
@@ -102,7 +100,7 @@ export function AuthForm() {
             <FieldError id="auth-email-error" message={fieldErrors.email} />
           </FormField>
 
-          <FormField id="auth-password" label="Password" error={fieldErrors.password}>
+          <FormField id="auth-password" label="Contraseña" error={fieldErrors.password}>
             <TextInput
               id="auth-password"
               type="password"
@@ -123,7 +121,7 @@ export function AuthForm() {
             loading={loading}
             className="w-full justify-center bg-cyan-400 text-gray-950 hover:bg-cyan-300"
           >
-            {isSignUp ? 'Sign Up' : 'Sign In'}
+            {isSignUp ? 'Crear cuenta' : 'Ingresar'}
           </Button>
         </form>
 
@@ -136,8 +134,8 @@ export function AuthForm() {
             className="text-sm text-cyan-500 hover:text-cyan-300 transition-colors"
           >
             {isSignUp
-              ? 'Already have an account? Sign in'
-              : "Don't have an account? Sign up"}
+              ? '¿Ya tenés cuenta? Ingresá'
+              : '¿No tenés cuenta? Creala'}
           </button>
         </div>
       </div>

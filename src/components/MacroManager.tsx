@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMacroStore } from '../stores/useMacroStore';
 import { formatRollBreakdown, parseAndRollDetailed } from '../utils/dice';
 import { AlertBanner } from './ui/AlertBanner';
@@ -45,11 +45,10 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
     }
   };
 
-  const handleRollMacro = (macroName: string, expr: string) => {
+  const handleRollMacro = useCallback((macroName: string, expr: string) => {
     const roll = parseAndRollDetailed(expr);
-    // Use macro name + expression as the 'diceType' so everyone sees what was rolled
     onRoll(`${macroName} (${expr})`, roll.total, formatRollBreakdown(roll));
-  };
+  }, [onRoll]);
 
   const beginEdit = (id: string, currentName: string, currentExpression: string) => {
     setEditingId(id);
@@ -92,12 +91,12 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
 
   return (
     <div className="bg-slate-900 p-4 rounded-lg mt-6">
-      <h3 className="text-lg font-semibold mb-3">My Macros</h3>
+      <h3 className="text-lg font-semibold mb-3">Mis macros</h3>
       {error ? <AlertBanner tone="error" title="Error de macros" message={error} /> : null}
       
       <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
         {macros.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">No macros saved yet.</p>
+          <p className="text-slate-500 text-sm italic">Todavía no tenés macros guardadas.</p>
         ) : (
           macros.map((macro) => (
             <div key={macro.id} className="flex items-center justify-between bg-slate-800 p-2 rounded border border-slate-700">
@@ -129,14 +128,14 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
                       onClick={saveEdit}
                       className="text-sm py-1 px-2"
                     >
-                      Save
+                      Guardar
                     </Button>
                     <Button
                       onClick={cancelEdit}
                       variant="secondary"
                       className="text-sm py-1 px-2"
                     >
-                      Cancel
+                      Cancelar
                     </Button>
                   </>
                 ) : (
@@ -145,17 +144,17 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
                       onClick={() => handleRollMacro(macro.name, macro.dice_expression)}
                       className="bg-emerald-600 hover:bg-emerald-500 text-sm py-1 px-3"
                     >
-                      Roll
+                      Tirar
                     </Button>
                     <Button
                       onClick={() => beginEdit(macro.id, macro.name, macro.dice_expression)}
                       className="bg-amber-700 hover:bg-amber-600 text-sm py-1 px-2"
                     >
-                      Edit
+                      Editar
                     </Button>
                   </>
                 )}
-                <Button onClick={() => handleDelete(macro.id)} variant="danger" className="text-sm py-1 px-2" aria-label="Delete Macro" title="Delete Macro">✕</Button>
+                <Button onClick={() => handleDelete(macro.id)} variant="danger" className="text-sm py-1 px-2" aria-label="Eliminar macro" title="Eliminar macro">✕</Button>
               </div>
             </div>
           ))
@@ -165,7 +164,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
       <form onSubmit={handleAdd} className="flex gap-2 border-t border-slate-700 pt-4">
         <TextInput
           type="text"
-          placeholder="Name (e.g. Fireball)"
+          placeholder="Nombre (ej: Bola de fuego)"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={20}
@@ -173,7 +172,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
         />
         <TextInput
           type="text"
-          placeholder="Expr (e.g. 8d6)"
+          placeholder="Expresión (ej: 8d6)"
           value={expression}
           onChange={(e) => setExpression(e.target.value)}
           maxLength={20}
@@ -185,7 +184,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
           loading={loading}
           className="py-2 px-3"
         >
-          Add
+          Agregar
         </Button>
       </form>
     </div>

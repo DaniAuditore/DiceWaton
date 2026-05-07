@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { RealtimeChannel, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
@@ -77,7 +77,7 @@ export function ControllerView() {
     };
   }, [roomId, playerId, playerName]);
 
-  const joinRoom = async (e: React.FormEvent) => {
+  const joinRoom = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: { name?: string; pin?: string } = {};
     if (pinInput.length !== 4) {
@@ -127,9 +127,9 @@ export function ControllerView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pinInput, playerName, setIdentity, setRoom, session?.user?.id, setUiStatus]);
 
-  const handleRoll = (diceType: string, result: number, details?: string) => {
+  const handleRoll = useCallback((diceType: string, result: number, details?: string) => {
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -144,12 +144,14 @@ export function ControllerView() {
         }
       });
     }
-  };
+  }, [playerName]);
+
+  const canSubmitJoin = useMemo(() => !loading && pinInput.length === 4 && Boolean(playerName.trim()), [loading, pinInput.length, playerName]);
 
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="text-cyan-400">Loading...</div>
+        <div className="text-cyan-400">Cargando...</div>
       </div>
     );
   }
@@ -163,7 +165,7 @@ export function ControllerView() {
       <section className="app-card text-center">
         {!roomId ? (
           <>
-            <h1 className="text-3xl font-bold mb-6">Join Game</h1>
+            <h1 className="text-3xl font-bold mb-6">Unirse a sala</h1>
             <div className="mb-4 text-left">
               <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
             </div>
@@ -180,7 +182,7 @@ export function ControllerView() {
                     setPlayerName(e.target.value);
                     if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
                   }}
-                  placeholder="Your Name"
+                  placeholder="Tu nombre"
                   maxLength={16}
                   invalid={Boolean(fieldErrors.name)}
                   aria-describedby={fieldErrors.name ? 'controller-name-error' : undefined}
@@ -197,7 +199,7 @@ export function ControllerView() {
                     setPinInput(e.target.value.toUpperCase());
                     if (fieldErrors.pin) setFieldErrors((prev) => ({ ...prev, pin: undefined }));
                   }}
-                  placeholder="Enter 4-char PIN"
+                  placeholder="Ingresá el PIN de 4 caracteres"
                   maxLength={4}
                   invalid={Boolean(fieldErrors.pin)}
                   aria-describedby={fieldErrors.pin ? 'controller-pin-error' : undefined}
@@ -207,11 +209,11 @@ export function ControllerView() {
               </FormField>
               <Button
                 type="submit"
-                disabled={loading || pinInput.length !== 4 || !playerName.trim()}
+                disabled={!canSubmitJoin}
                 loading={loading}
                 className="w-full"
               >
-                Join Room
+                Unirse a la sala
               </Button>
             </form>
             
@@ -219,14 +221,14 @@ export function ControllerView() {
               onClick={() => supabase.auth.signOut()} 
               className="mt-6 text-sm text-slate-400 hover:text-white"
             >
-              Sign Out
+              Cerrar sesión
             </button>
           </>
         ) : (
           <div className="space-y-6">
             <div className="bg-slate-900 p-4 rounded-lg flex justify-between items-center">
               <div>
-                <p className="text-slate-400 text-sm mb-1 text-left">Connected to Room</p>
+                <p className="text-slate-400 text-sm mb-1 text-left">Conectado a la sala</p>
                 <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
               </div>
               <button 
@@ -238,9 +240,9 @@ export function ControllerView() {
             </div>
             
             <div className="border-t border-slate-700 pt-6">
-              <h2 className="text-xl font-semibold mb-4">Controller</h2>
+                <h2 className="text-xl font-semibold mb-4">Controlador</h2>
               <div className="bg-slate-900 p-6 rounded-lg mb-6">
-                <p className="text-slate-400 text-sm mb-2">Current Context:</p>
+                  <p className="text-slate-400 text-sm mb-2">Contexto actual:</p>
                 <p className="text-lg font-bold text-emerald-400">{gameContext}</p>
               </div>
               <DiceTray onRoll={handleRoll} />
