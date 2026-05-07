@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useMacroStore } from '../stores/useMacroStore';
 import { formatRollBreakdown, parseAndRollDetailed } from '../utils/dice';
+import { AlertBanner } from './ui/AlertBanner';
+import { Button } from './ui/Button';
+import { TextInput } from './ui/TextInput';
+import { useUiStore } from '../stores/useUiStore';
 
 type MacroManagerProps = {
   onRoll: (diceType: string, result: number, details?: string) => void;
@@ -14,6 +18,8 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingExpression, setEditingExpression] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const setUiStatus = useUiStore((state) => state.setStatus);
 
   useEffect(() => {
     fetchMacros();
@@ -24,12 +30,16 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
     if (!name.trim() || !expression.trim()) return;
     
     setLoading(true);
+    setError(null);
+    setUiStatus('macro-crud', 'loading', 'Guardando macro...');
     try {
       await addMacro(name, expression);
       setName('');
       setExpression('');
+      setUiStatus('macro-crud', 'success', 'Macro creada.');
     } catch (err) {
-      console.error(err);
+      setError('No se pudo crear el macro. Probá nuevamente.');
+      setUiStatus('macro-crud', 'error', 'No se pudo crear el macro.');
     } finally {
       setLoading(false);
     }
@@ -56,19 +66,34 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   const saveEdit = async () => {
     if (!editingId || !editingName.trim() || !editingExpression.trim()) return;
     setLoading(true);
+    setError(null);
     try {
       await updateMacro(editingId, editingName.trim(), editingExpression.trim());
       cancelEdit();
+      setUiStatus('macro-crud', 'success', 'Macro actualizada.');
     } catch (err) {
-      console.error(err);
+      setError('No se pudo actualizar el macro.');
+      setUiStatus('macro-crud', 'error', 'No se pudo actualizar el macro.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setError(null);
+    try {
+      await deleteMacro(id);
+      setUiStatus('macro-crud', 'success', 'Macro eliminada.');
+    } catch {
+      setError('No se pudo eliminar el macro.');
+      setUiStatus('macro-crud', 'error', 'No se pudo eliminar el macro.');
     }
   };
 
   return (
     <div className="bg-slate-900 p-4 rounded-lg mt-6">
       <h3 className="text-lg font-semibold mb-3">My Macros</h3>
+      {error ? <AlertBanner tone="error" title="Error de macros" message={error} /> : null}
       
       <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
         {macros.length === 0 ? (
@@ -78,16 +103,16 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
             <div key={macro.id} className="flex items-center justify-between bg-slate-800 p-2 rounded border border-slate-700">
               {editingId === macro.id ? (
                 <div className="flex-1 grid grid-cols-2 gap-2 mr-2">
-                  <input
+                  <TextInput
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm"
+                    className="px-2 py-1 text-sm"
                     maxLength={20}
                   />
-                  <input
+                  <TextInput
                     value={editingExpression}
                     onChange={(e) => setEditingExpression(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm font-mono"
+                    className="px-2 py-1 text-sm font-mono"
                     maxLength={20}
                   />
                 </div>
@@ -100,42 +125,37 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
               <div className="flex gap-2">
                 {editingId === macro.id ? (
                   <>
-                    <button
+                    <Button
                       onClick={saveEdit}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-1 px-2 rounded transition-colors"
+                      className="text-sm py-1 px-2"
                     >
                       Save
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={cancelEdit}
-                      className="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-1 px-2 rounded transition-colors"
+                      variant="secondary"
+                      className="text-sm py-1 px-2"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <button
+                    <Button
                       onClick={() => handleRollMacro(macro.name, macro.dice_expression)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-1 px-3 rounded transition-colors"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-sm py-1 px-3"
                     >
                       Roll
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => beginEdit(macro.id, macro.name, macro.dice_expression)}
-                      className="bg-amber-700 hover:bg-amber-600 text-white text-sm font-bold py-1 px-2 rounded transition-colors"
+                      className="bg-amber-700 hover:bg-amber-600 text-sm py-1 px-2"
                     >
                       Edit
-                    </button>
+                    </Button>
                   </>
                 )}
-                <button
-                  onClick={() => deleteMacro(macro.id)}
-                  className="bg-red-900 hover:bg-red-800 text-white text-sm font-bold py-1 px-2 rounded transition-colors"
-                  title="Delete Macro"
-                >
-                  ✕
-                </button>
+                <Button onClick={() => handleDelete(macro.id)} variant="danger" className="text-sm py-1 px-2" aria-label="Delete Macro" title="Delete Macro">✕</Button>
               </div>
             </div>
           ))
@@ -143,29 +163,30 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
       </div>
 
       <form onSubmit={handleAdd} className="flex gap-2 border-t border-slate-700 pt-4">
-        <input
+        <TextInput
           type="text"
           placeholder="Name (e.g. Fireball)"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={20}
-          className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+          className="flex-1 bg-slate-800 px-3 py-2 text-sm"
         />
-        <input
+        <TextInput
           type="text"
           placeholder="Expr (e.g. 8d6)"
           value={expression}
           onChange={(e) => setExpression(e.target.value)}
           maxLength={20}
-          className="w-24 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+          className="w-24 bg-slate-800 px-3 py-2 text-sm"
         />
-        <button
+        <Button
           type="submit"
           disabled={loading || !name.trim() || !expression.trim()}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded transition-colors disabled:opacity-50"
+          loading={loading}
+          className="py-2 px-3"
         >
           Add
-        </button>
+        </Button>
       </form>
     </div>
   );

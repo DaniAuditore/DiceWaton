@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { AlertBanner } from './ui/AlertBanner';
+import { Button } from './ui/Button';
+import { FieldError } from './ui/FieldError';
+import { FormField } from './ui/FormField';
+import { TextInput } from './ui/TextInput';
+import { useUiStore } from '../stores/useUiStore';
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
@@ -7,28 +13,55 @@ export function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const setUiStatus = useUiStore((state) => state.setStatus);
+  const clearUiStatus = useUiStore((state) => state.clearStatus);
+
+  const validate = () => {
+    const nextErrors: { email?: string; password?: string } = {};
+    if (!email.trim()) nextErrors.email = 'El email es obligatorio.';
+    if (!password.trim()) nextErrors.password = 'La contraseña es obligatoria.';
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) {
+      setError('Revisá los campos obligatorios para continuar.');
+      setUiStatus('auth', 'error', 'Revisá los campos obligatorios para continuar.');
+      requestAnimationFrame(() => summaryRef.current?.focus());
+      return;
+    }
     setLoading(true);
     setError(null);
+    clearUiStatus('auth');
 
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // Supabase might require email confirmation, but we'll assume auto-confirm or that the user is notified by the SDK response/email.
-        setError('Check your email for the confirmation link.');
+        setError('Revisá tu email para confirmar la cuenta.');
+        setUiStatus('auth', 'success', 'Revisá tu email para confirmar la cuenta.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        setUiStatus('auth', 'success', 'Ingreso exitoso.');
       }
     } catch (err: any) {
       setError(err.message);
+      setUiStatus('auth', 'error', err.message);
+      requestAnimationFrame(() => summaryRef.current?.focus());
     } finally {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-950 p-4 font-mono text-cyan-50">
@@ -46,47 +79,52 @@ export function AuthForm() {
         </div>
 
         {error && (
-          <div className="mb-6 rounded-md bg-red-950/50 border border-red-900/50 p-4">
-            <p className="text-sm text-red-400">{error}</p>
+          <div ref={summaryRef} tabIndex={-1}>
+            <AlertBanner tone="error" title="No pudimos completar la autenticación" message={error} />
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-cyan-300">
-              Email
-            </label>
-            <input
+        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+          <FormField id="auth-email" label="Email" error={fieldErrors.email}>
+            <TextInput
+              ref={emailRef}
+              id="auth-email"
               type="email"
-              required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-2 block w-full rounded-md border border-cyan-900/50 bg-gray-950 px-4 py-3 text-cyan-100 placeholder-cyan-800/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+              }}
+              invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? 'auth-email-error' : undefined}
               placeholder="player@example.com"
             />
-          </div>
+            <FieldError id="auth-email-error" message={fieldErrors.email} />
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-cyan-300">
-              Password
-            </label>
-            <input
+          <FormField id="auth-password" label="Password" error={fieldErrors.password}>
+            <TextInput
+              id="auth-password"
               type="password"
-              required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-2 block w-full rounded-md border border-cyan-900/50 bg-gray-950 px-4 py-3 text-cyan-100 placeholder-cyan-800/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
+              invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? 'auth-password-error' : undefined}
               placeholder="••••••••"
             />
-          </div>
+            <FieldError id="auth-password-error" message={fieldErrors.password} />
+          </FormField>
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-gray-950 bg-cyan-400 hover:bg-cyan-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            loading={loading}
+            className="w-full justify-center bg-cyan-400 text-gray-950 hover:bg-cyan-300"
           >
-            {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
-          </button>
+            {isSignUp ? 'Sign Up' : 'Sign In'}
+          </Button>
         </form>
 
         <div className="mt-8 text-center">

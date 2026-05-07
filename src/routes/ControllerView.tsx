@@ -6,6 +6,12 @@ import { DiceTray } from '../components/DiceTray';
 import { MacroManager } from '../components/MacroManager';
 import { AuthForm } from '../components/AuthForm';
 import { DiceLog, type RollEvent } from '../components/DiceLog';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
+import { FieldError } from '../components/ui/FieldError';
+import { FormField } from '../components/ui/FormField';
+import { TextInput } from '../components/ui/TextInput';
+import { useUiStore } from '../stores/useUiStore';
 
 export function ControllerView() {
   const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId } = useGameStore();
@@ -16,7 +22,9 @@ export function ControllerView() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [logs, setLogs] = useState<RollEvent[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; pin?: string }>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const setUiStatus = useUiStore((state) => state.setStatus);
 
   type AuthSessionResponse = { data: { session: Session | null } };
   type BroadcastPayload = { payload: { context: unknown } };
@@ -70,17 +78,24 @@ export function ControllerView() {
 
   const joinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors: { name?: string; pin?: string } = {};
     if (pinInput.length !== 4) {
-      setError('PIN must be 4 characters');
-      return;
+      nextErrors.pin = 'El PIN debe tener 4 caracteres.';
     }
     if (!playerName.trim()) {
-      setError('Name is required');
+      nextErrors.name = 'El nombre es obligatorio.';
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      setError('Revisá los datos para unirte a la sala.');
+      setUiStatus('controller-join', 'error', 'Revisá los datos para unirte a la sala.');
       return;
     }
 
     setLoading(true);
     setError(null);
+    setFieldErrors({});
+    setUiStatus('controller-join', 'loading', 'Uniéndote a la sala...');
     try {
       const pId = session?.user?.id;
 
@@ -104,8 +119,10 @@ export function ControllerView() {
       }
 
       setRoom(data.id, data.pin);
+      setUiStatus('controller-join', 'success', 'Ingreso exitoso a la sala.');
     } catch (err: any) {
       setError(err.message);
+      setUiStatus('controller-join', 'error', err.message);
     } finally {
       setLoading(false);
     }
@@ -147,40 +164,48 @@ export function ControllerView() {
           <>
             <h1 className="text-3xl font-bold mb-6">Join Game</h1>
             
-            {error && (
-              <div className="bg-red-500/20 text-red-300 p-3 rounded mb-4 text-sm">
-                {error}
-              </div>
-            )}
+            {error ? <AlertBanner tone="error" title="No pudimos unirte a la sala" message={error} /> : null}
 
-            <form onSubmit={joinRoom} className="space-y-4">
-              <div>
-                <input
+            <form onSubmit={joinRoom} className="space-y-4" noValidate>
+              <FormField id="controller-name" label="Tu nombre" error={fieldErrors.name}>
+                <TextInput
+                  id="controller-name"
                   type="text"
                   value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
+                  onChange={(e) => {
+                    setPlayerName(e.target.value);
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
                   placeholder="Your Name"
                   maxLength={16}
-                  className="w-full bg-slate-900 border border-slate-700 rounded p-4 text-xl text-center focus:outline-none focus:border-indigo-500 transition-colors"
+                  invalid={Boolean(fieldErrors.name)}
+                  aria-describedby={fieldErrors.name ? 'controller-name-error' : undefined}
+                  className="text-xl text-center"
                 />
-              </div>
-              <div>
-                <input
+                <FieldError id="controller-name-error" message={fieldErrors.name} />
+              </FormField>
+              <FormField id="controller-pin" label="PIN de sala" error={fieldErrors.pin}>
+                <TextInput
+                  id="controller-pin"
                   type="text"
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value.toUpperCase())}
                   placeholder="Enter 4-char PIN"
                   maxLength={4}
-                  className="w-full bg-slate-900 border border-slate-700 rounded p-4 text-2xl text-center font-mono uppercase tracking-widest focus:outline-none focus:border-indigo-500 transition-colors"
+                  invalid={Boolean(fieldErrors.pin)}
+                  aria-describedby={fieldErrors.pin ? 'controller-pin-error' : undefined}
+                  className="text-2xl text-center font-mono uppercase tracking-widest"
                 />
-              </div>
-              <button
+                <FieldError id="controller-pin-error" message={fieldErrors.pin} />
+              </FormField>
+              <Button
                 type="submit"
                 disabled={loading || pinInput.length !== 4 || !playerName.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded transition-colors disabled:opacity-50"
+                loading={loading}
+                className="w-full"
               >
-                {loading ? 'Joining...' : 'Join Room'}
-              </button>
+                Join Room
+              </Button>
             </form>
             
             <button 

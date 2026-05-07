@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ControllerView } from './ControllerView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
@@ -101,5 +101,23 @@ describe('ControllerView auth gating', () => {
 
     expect(await screen.findByText('rolled Fireball (2d6+1)')).toBeTruthy();
     expect(screen.getByText('2d6[3,4] +1')).toBeTruthy();
+  });
+
+  it('shows field-level and summary validation errors on invalid join', async () => {
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+
+    render(<ControllerView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Join Game')).toBeTruthy();
+    });
+
+    fireEvent.submit(screen.getByRole('button', { name: 'Join Room' }).closest('form') as HTMLFormElement);
+
+    expect(await screen.findByText('Revisá los datos para unirte a la sala.')).toBeTruthy();
+    expect(screen.getByText('El nombre es obligatorio.')).toBeTruthy();
+    expect(screen.getByText('El PIN debe tener 4 caracteres.')).toBeTruthy();
   });
 });

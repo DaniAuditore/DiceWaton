@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceLog, type RollEvent } from '../components/DiceLog';
 import { generatePin } from '../utils/pin';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
+import { useUiStore } from '../stores/useUiStore';
 
 export function HostView() {
   const { roomId, roomPin, setRoom, setIdentity, playerId } = useGameStore();
@@ -11,6 +14,7 @@ export function HostView() {
   const [players, setPlayers] = useState<any[]>([]);
   const [logs, setLogs] = useState<RollEvent[]>([]);
   const channelRef = useRef<any>(null);
+  const setUiStatus = useUiStore((state) => state.setStatus);
 
   const ensureAnonymousHostUser = async () => {
     let { data: authData } = await supabase.auth.getUser();
@@ -65,6 +69,7 @@ export function HostView() {
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
+          setUiStatus('host-realtime', 'success', 'Conectado en tiempo real.');
           const { data } = await supabase.auth.getUser();
           await channel.track({ 
             id: data.user?.id, 
@@ -82,6 +87,7 @@ export function HostView() {
   const createRoom = async () => {
     setLoading(true);
     setError(null);
+    setUiStatus('host-room', 'loading', 'Creando sala...');
     try {
       const hostId = await ensureAnonymousHostUser();
 
@@ -101,8 +107,10 @@ export function HostView() {
       if (error) throw error;
 
       setRoom(data.id, data.pin);
+      setUiStatus('host-room', 'success', 'Sala creada correctamente.');
     } catch (err: any) {
       setError(err.message);
+      setUiStatus('host-room', 'error', err.message);
     } finally {
       setLoading(false);
     }
@@ -125,20 +133,16 @@ export function HostView() {
       <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center">
         <h1 className="text-3xl font-bold mb-6">Host a Game</h1>
         
-        {error && (
-          <div className="bg-red-500/20 text-red-300 p-3 rounded mb-4 text-sm">
-            {error}
-          </div>
-        )}
+        {error ? <AlertBanner tone="error" title="No se pudo crear la sala" message={error} onRetry={createRoom} /> : null}
 
         {!roomId ? (
-          <button
+          <Button
             onClick={createRoom}
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded transition-colors disabled:opacity-50"
+            loading={loading}
+            className="w-full"
           >
-            {loading ? 'Creating...' : 'Create Room'}
-          </button>
+            Create Room
+          </Button>
         ) : (
           <div className="space-y-6">
             <div>
@@ -150,10 +154,10 @@ export function HostView() {
             
             <div className="border-t border-slate-700 pt-6">
               <h2 className="text-xl font-semibold mb-4">Players ({controllers.length})</h2>
-              {controllers.length === 0 ? (
-                <div className="text-slate-400 text-sm italic">
-                  Waiting for players to join...
-                </div>
+               {controllers.length === 0 ? (
+                 <div className="text-slate-400 text-sm italic">
+                   Waiting for players to join...
+                 </div>
               ) : (
                 <ul className="space-y-2">
                   {controllers.map((p, i) => (

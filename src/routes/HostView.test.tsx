@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
@@ -20,6 +20,7 @@ vi.mock('../lib/supabase', () => ({
 
 describe('Supabase integration lifecycle in HostView', () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
     useGameStore.getState().reset();
     
@@ -66,5 +67,17 @@ describe('Supabase integration lifecycle in HostView', () => {
 
     expect(screen.getByText('Host a Game')).toBeTruthy();
     expect(screen.queryByText('Sign in to your account')).toBeNull();
+  });
+
+  it('shows accessible retry error banner when room creation fails', async () => {
+    (supabase.auth.getUser as any).mockResolvedValue({ data: { user: null } });
+
+    render(<HostView />);
+
+    const button = screen.getAllByRole('button', { name: 'Create Room' })[0];
+    button.click();
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 });
