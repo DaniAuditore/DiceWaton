@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useMacroStore } from '../stores/useMacroStore';
-import { parseAndRoll } from '../utils/dice';
+import { formatRollBreakdown, parseAndRollDetailed } from '../utils/dice';
 
 type MacroManagerProps = {
-  onRoll: (diceType: string, result: number) => void;
+  onRoll: (diceType: string, result: number, details?: string) => void;
 };
 
 export function MacroManager({ onRoll }: MacroManagerProps) {
@@ -36,9 +36,9 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   };
 
   const handleRollMacro = (macroName: string, expr: string) => {
-    const result = parseAndRoll(expr);
+    const roll = parseAndRollDetailed(expr);
     // Use macro name + expression as the 'diceType' so everyone sees what was rolled
-    onRoll(`${macroName} (${expr})`, result);
+    onRoll(`${macroName} (${expr})`, roll.total, formatRollBreakdown(roll));
   };
 
   const beginEdit = (id: string, currentName: string, currentExpression: string) => {

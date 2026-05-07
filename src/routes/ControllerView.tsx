@@ -5,6 +5,7 @@ import { useGameStore } from '../stores/useGameStore';
 import { DiceTray } from '../components/DiceTray';
 import { MacroManager } from '../components/MacroManager';
 import { AuthForm } from '../components/AuthForm';
+import { DiceLog, type RollEvent } from '../components/DiceLog';
 
 export function ControllerView() {
   const { roomId, roomPin, setRoom, setIdentity, gameContext, updateGameState, playerId } = useGameStore();
@@ -14,6 +15,7 @@ export function ControllerView() {
   const [playerName, setPlayerName] = useState('');
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [logs, setLogs] = useState<RollEvent[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   type AuthSessionResponse = { data: { session: Session | null } };
@@ -46,6 +48,9 @@ export function ControllerView() {
     channel
       .on('broadcast', { event: 'game_state_update' }, ({ payload }: BroadcastPayload) => {
         updateGameState(payload.context as any, []);
+      })
+      .on('broadcast', { event: 'dice_roll' }, ({ payload }: { payload: unknown }) => {
+        setLogs(prev => [payload as RollEvent, ...prev].slice(0, 50));
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
@@ -106,7 +111,7 @@ export function ControllerView() {
     }
   };
 
-  const handleRoll = (diceType: string, result: number) => {
+  const handleRoll = (diceType: string, result: number, details?: string) => {
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -116,7 +121,8 @@ export function ControllerView() {
           playerName,
           diceType,
           result,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          details,
         }
       });
     }
@@ -207,6 +213,7 @@ export function ControllerView() {
               </div>
               <DiceTray onRoll={handleRoll} />
               <MacroManager onRoll={handleRoll} />
+              <DiceLog logs={logs} />
             </div>
           </div>
         )}

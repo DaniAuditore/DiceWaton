@@ -6,6 +6,7 @@ export type RollEvent = {
   diceType: string;
   result: number;
   timestamp: number;
+  details?: string;
 };
 
 export function DiceLog({ logs }: { logs: RollEvent[] }) {
@@ -20,6 +21,9 @@ export function DiceLog({ logs }: { logs: RollEvent[] }) {
             <div>
               <span className="font-bold text-indigo-400">{log.playerName}</span>
               <span className="text-slate-400 text-sm ml-2">rolled {log.diceType}</span>
+              {log.details ? (
+                <div className="text-xs text-slate-500 font-mono mt-1">{log.details}</div>
+              ) : null}
             </div>
             <div className="text-2xl font-bold text-emerald-400">
               {log.result}

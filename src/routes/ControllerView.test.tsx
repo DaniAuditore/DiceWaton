@@ -5,6 +5,13 @@ import { ControllerView } from './ControllerView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
 
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+  track: vi.fn().mockResolvedValue({}),
+  send: vi.fn(),
+};
+
 vi.mock('../components/AuthForm', () => ({
   AuthForm: () => <div>Mock Auth Form</div>,
 }));
@@ -27,10 +34,7 @@ vi.mock('../lib/supabase', () => ({
       single: vi.fn(),
     })),
     channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      track: vi.fn().mockResolvedValue({}),
-      send: vi.fn(),
+      ...mockChannel,
     })),
     removeChannel: vi.fn(),
   },
@@ -40,6 +44,8 @@ describe('ControllerView auth gating', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mockChannel.on.mockReturnThis();
+    mockChannel.subscribe.mockReturnThis();
     useGameStore.getState().reset();
   });
 
@@ -63,5 +69,37 @@ describe('ControllerView auth gating', () => {
     await waitFor(() => {
       expect(screen.getByText('Join Game')).toBeTruthy();
     });
+  });
+
+  it('subscribes to dice_roll and renders incoming roll details', async () => {
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+    useGameStore.getState().setIdentity('controller-1', false);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+
+    render(<ControllerView />);
+
+    await waitFor(() => {
+      expect(mockChannel.on).toHaveBeenCalledWith('broadcast', { event: 'dice_roll' }, expect.any(Function));
+    });
+
+    const diceRollHandler = mockChannel.on.mock.calls.find(
+      (call) => call[0] === 'broadcast' && call[1]?.event === 'dice_roll'
+    )?.[2];
+
+    diceRollHandler?.({
+      payload: {
+        id: 'evt-1',
+        playerName: 'Ada',
+        diceType: 'Fireball (2d6+1)',
+        result: 8,
+        timestamp: Date.now(),
+        details: '2d6[3,4] +1',
+      },
+    });
+
+    expect(await screen.findByText('rolled Fireball (2d6+1)')).toBeTruthy();
+    expect(screen.getByText('2d6[3,4] +1')).toBeTruthy();
   });
 });

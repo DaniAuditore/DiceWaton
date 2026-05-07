@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseAndRoll } from './dice';
+import { describe, it, expect, vi } from 'vitest';
+import { formatRollBreakdown, parseAndRoll, parseAndRollDetailed } from './dice';
 
 describe('dice util', () => {
   it('parses flat modifiers', () => {
@@ -21,5 +21,22 @@ describe('dice util', () => {
     result = parseAndRoll('2d6+3');
     expect(result).toBeGreaterThanOrEqual(5);
     expect(result).toBeLessThanOrEqual(15);
+  });
+
+  it('returns full term breakdown for multi-dice expressions', () => {
+    const randomSpy = vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.0) // 1 on d6
+      .mockReturnValueOnce(0.5); // 4 on d6
+
+    const result = parseAndRollDetailed('2d6+1');
+
+    expect(result.total).toBe(6);
+    expect(result.terms).toEqual([
+      { notation: '2d6', sign: 1, subtotal: 5, rolls: [1, 4] },
+      { notation: '1', sign: 1, subtotal: 1 },
+    ]);
+    expect(formatRollBreakdown(result)).toBe('2d6[1,4] +1');
+
+    randomSpy.mockRestore();
   });
 });
