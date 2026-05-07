@@ -1,0 +1,221 @@
+name: security-baseline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sast:
+    name: sast
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Semgrep CLI
+        run: python -m pip install --upgrade semgrep
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Semgrep baseline
+        run: npm run security:sast || true
+
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          if-no-files-found: warn
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Gitleaks baseline
+        run: npm run security:secrets || true
+
+      - name: Upload Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: warn
+
+  deps:
+    name: deps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run dependency audit baseline
+        run: npm run security:deps
+
+      - name: Upload dependency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deps-report
+          path: deps-report.json
+          if-no-files-found: warn
+
+  sanity:
+    name: sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run config and migration sanity checks
+        run: npm run security:sanity || true
+
+      - name: Upload sanity reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-reports
+          path: |
+            supabase-sanity-report.json
+            config-sanity-report.json
+          if-no-files-found: warn
+
+  security-baseline:
+    name: security-baseline
+    runs-on: ubuntu-latest
+    needs:
+      - sast
+      - secrets
+      - deps
+      - sanity
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Semgrep report
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-report
+          path: .
+
+      - name: Download Gitleaks report
+        uses: actions/download-artifact@v4
+        with:
+          name: gitleaks-report
+          path: .
+
+      - name: Download dependency report
+        uses: actions/download-artifact@v4
+        with:
+          name: deps-report
+          path: .
+
+      - name: Download sanity reports
+        uses: actions/download-artifact@v4
+        with:
+          name: sanity-reports
+          path: .
+
+      - name: Aggregate security report
+        run: node scripts/security/aggregate-security-report.mjs
+
+      - name: Build markdown summary
+        run: |
+          node --input-type=module -e "import {readFileSync, writeFileSync} from 'node:fs'; const report = JSON.parse(readFileSync('security-report.json', 'utf8')); const s = report.summary ?? {}; const blocking = (report.findings ?? []).filter((f) => ['high','critical'].includes(String(f.severity).toLowerCase()) && String(f.status).toLowerCase() === 'new'); const status = blocking.length === 0 ? 'PASS' : 'FAIL'; const lines = ['## Security Baseline', '', `- Status: **${status}**`, `- Blocking findings (new High/Critical): **${blocking.length}**`, '', '### Severity Summary', `- Critical: ${s.critical ?? 0}`, `- High: ${s.high ?? 0}`, `- Medium: ${s.medium ?? 0}`, `- Low: ${s.low ?? 0}`, '', 'Artifacts: `security-report.json`, `security-summary.md`']; writeFileSync('security-summary.md', lines.join('\\n') + '\\n');"
+
+      - name: Evaluate security gate
+        run: node scripts/security/gate-evaluator.mjs
+        env:
+          SECURITY_GATE_MODE: enforce
+
+      - name: Upload aggregate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-baseline-report
+          path: |
+            security-report.json
+            security-summary.md
+          if-no-files-found: error
+
+      - name: Add PR security summary comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const marker = '<!-- security-baseline-summary -->';
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            const body = `${marker}\n${summary}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
