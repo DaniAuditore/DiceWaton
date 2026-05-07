@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
 const workflowPath = path.resolve(repoRoot, '.github/workflows/security-baseline.yml');
+const branchProtectionDocPath = path.resolve(repoRoot, 'docs/security/branch-protection.md');
 
 describe('security baseline workflow PR gate contract', () => {
   it('defines deterministic PR gate requirements at repo level', async () => {
@@ -34,5 +35,14 @@ describe('security baseline workflow PR gate contract', () => {
 
     expect(workflow).toContain("if: always() && github.event_name == 'pull_request'");
     expect(workflow).toContain('security-baseline-summary');
+  });
+
+  it('documents required-check branch protection contract', async () => {
+    const doc = await readFile(branchProtectionDocPath, 'utf8');
+
+    expect(doc).toContain('Require status checks to pass before merging');
+    expect(doc).toContain('security-baseline');
+    expect(doc).toContain('required_status_checks.contexts[]=\'security-baseline\'');
+    expect(doc).toContain('requires admin permissions');
   });
 });

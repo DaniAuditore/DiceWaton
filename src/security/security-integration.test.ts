@@ -60,10 +60,56 @@ describe('security baseline integration scenarios', () => {
 
   it('critical-new PR blocks in enforce mode', async () => {
     const cwd = await setupCase({
-      'supabase-sanity-report': {
-        findings: [{ severity: 'critical', status: 'new', ruleId: 'sanity/crit', file: 'x.sql' }],
+      'semgrep-report': {
+        results: [
+          {
+            check_id: 'owasp/no-sql-injection',
+            path: 'src/db/query.ts',
+            start: { line: 14 },
+            extra: { severity: 'critical', message: 'Raw dynamic SQL from user input' },
+          },
+        ],
       },
     });
+    const gate = await runNode(gatePath, cwd, { SECURITY_GATE_MODE: 'enforce' });
+    expect(gate.code).toBe(1);
+    expect(gate.stderr).toContain('result=fail');
+  });
+
+  it('exposed secret in PR blocks in enforce mode', async () => {
+    const cwd = await setupCase({
+      'gitleaks-report': [
+        {
+          RuleID: 'generic-api-key',
+          File: 'src/config.ts',
+          StartLine: 8,
+          Description: 'Live token committed by mistake',
+          Severity: 'critical',
+          Status: 'new',
+        },
+      ],
+    });
+
+    const gate = await runNode(gatePath, cwd, { SECURITY_GATE_MODE: 'enforce' });
+    expect(gate.code).toBe(1);
+    expect(gate.stderr).toContain('result=fail');
+  });
+
+  it('migration without RLS blocks in enforce mode', async () => {
+    const cwd = await setupCase({
+      'supabase-sanity-report': {
+        findings: [
+          {
+            severity: 'critical',
+            status: 'new',
+            ruleId: 'sanity/missing-rls-policy',
+            file: 'supabase/migrations/20260506_add_accounts.sql',
+            evidence: 'Table public.accounts has no ENABLE RLS and no CREATE POLICY',
+          },
+        ],
+      },
+    });
+
     const gate = await runNode(gatePath, cwd, { SECURITY_GATE_MODE: 'enforce' });
     expect(gate.code).toBe(1);
     expect(gate.stderr).toContain('result=fail');
