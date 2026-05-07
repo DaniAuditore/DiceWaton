@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceLog, type RollEvent } from '../components/DiceLog';
@@ -129,9 +130,12 @@ export function HostView() {
   const controllers = players.filter(p => !p.isHost);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
-      <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center">
+    <main className="app-shell">
+      <section className="app-card text-center">
         <h1 className="text-3xl font-bold mb-6">Host a Game</h1>
+        <div className="mb-4 text-left">
+          <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
+        </div>
         
         {error ? <AlertBanner tone="error" title="No se pudo crear la sala" message={error} onRetry={createRoom} /> : null}
 
@@ -185,7 +189,7 @@ export function HostView() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

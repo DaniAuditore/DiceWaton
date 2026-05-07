@@ -6,8 +6,8 @@ import './App.css';
 
 function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
-      <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center space-y-8">
+    <main className="app-shell">
+      <section className="app-card text-center space-y-8">
         <h1 className="text-4xl font-bold text-indigo-400">TTRPG Jackbox</h1>
         <p className="text-slate-400">Welcome! Are you hosting a new game or joining an existing one?</p>
         
@@ -25,8 +25,25 @@ function Home() {
             Join as Player
           </Link>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
+  );
+}
+
+function NotFound() {
+  return (
+    <main className="app-shell">
+      <section className="app-card text-center space-y-6" aria-labelledby="not-found-title">
+        <h1 id="not-found-title" className="text-3xl font-bold text-amber-300">Página no encontrada</h1>
+        <p className="text-slate-300">La ruta que intentaste abrir no existe o ya no está disponible.</p>
+        <Link
+          to="/"
+          className="w-full inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg"
+        >
+          Volver al inicio
+        </Link>
+      </section>
+    </main>
   );
 }
 
@@ -37,6 +54,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/host" element={<HostView />} />
         <Route path="/controller" element={<ControllerView />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

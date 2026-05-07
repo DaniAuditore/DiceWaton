@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { RealtimeChannel, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
@@ -158,11 +159,14 @@ export function ControllerView() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
-      <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg text-center">
+    <main className="app-shell">
+      <section className="app-card text-center">
         {!roomId ? (
           <>
             <h1 className="text-3xl font-bold mb-6">Join Game</h1>
+            <div className="mb-4 text-left">
+              <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
+            </div>
             
             {error ? <AlertBanner tone="error" title="No pudimos unirte a la sala" message={error} /> : null}
 
@@ -189,7 +193,10 @@ export function ControllerView() {
                   id="controller-pin"
                   type="text"
                   value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setPinInput(e.target.value.toUpperCase());
+                    if (fieldErrors.pin) setFieldErrors((prev) => ({ ...prev, pin: undefined }));
+                  }}
                   placeholder="Enter 4-char PIN"
                   maxLength={4}
                   invalid={Boolean(fieldErrors.pin)}
@@ -242,7 +249,7 @@ export function ControllerView() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

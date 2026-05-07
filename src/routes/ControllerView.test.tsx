@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ControllerView } from './ControllerView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
@@ -52,7 +53,11 @@ describe('ControllerView auth gating', () => {
   it('renders auth form when user is unauthenticated', async () => {
     (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
 
-    render(<ControllerView />);
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Mock Auth Form')).toBeTruthy();
@@ -64,7 +69,11 @@ describe('ControllerView auth gating', () => {
       data: { session: { user: { id: 'controller-1' } } },
     });
 
-    render(<ControllerView />);
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Join Game')).toBeTruthy();
@@ -78,7 +87,11 @@ describe('ControllerView auth gating', () => {
     useGameStore.getState().setIdentity('controller-1', false);
     useGameStore.getState().setRoom('room-1', 'ABCD');
 
-    render(<ControllerView />);
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(mockChannel.on).toHaveBeenCalledWith('broadcast', { event: 'dice_roll' }, expect.any(Function));
@@ -108,7 +121,11 @@ describe('ControllerView auth gating', () => {
       data: { session: { user: { id: 'controller-1' } } },
     });
 
-    render(<ControllerView />);
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Join Game')).toBeTruthy();

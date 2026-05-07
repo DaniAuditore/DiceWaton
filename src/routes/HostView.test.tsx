@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { HostView } from '../routes/HostView';
 import { useGameStore } from '../stores/useGameStore';
 import { supabase } from '../lib/supabase';
@@ -43,7 +44,11 @@ describe('Supabase integration lifecycle in HostView', () => {
     };
     (supabase.channel as any).mockReturnValue(mockChannel);
 
-    const { unmount } = render(<HostView />);
+    const { unmount } = render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(supabase.channel).toHaveBeenCalledWith('room:test-room-id', expect.any(Object));
@@ -59,7 +64,11 @@ describe('Supabase integration lifecycle in HostView', () => {
   });
 
   it('keeps host access anonymous without auth form', async () => {
-    render(<HostView />);
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(supabase.auth.signInAnonymously).toHaveBeenCalled();
@@ -72,7 +81,11 @@ describe('Supabase integration lifecycle in HostView', () => {
   it('shows accessible retry error banner when room creation fails', async () => {
     (supabase.auth.getUser as any).mockResolvedValue({ data: { user: null } });
 
-    render(<HostView />);
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
 
     const button = screen.getAllByRole('button', { name: 'Create Room' })[0];
     button.click();
