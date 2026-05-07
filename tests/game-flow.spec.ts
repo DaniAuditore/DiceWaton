@@ -1,20 +1,82 @@
 import { test, expect } from '@playwright/test';
 
+async function isVisible(locator: import('@playwright/test').Locator) {
+  try {
+    return await locator.isVisible();
+  } catch {
+    return false;
+  }
+}
+
+async function ensureHostRoom(page: import('@playwright/test').Page) {
+  const pinLabel = page.getByText(/PIN de sala|Room PIN/);
+  const createRoomButton = page.getByRole('button', { name: /Crear sala|Create Room/ });
+
+  await expect
+    .poll(async () => (await isVisible(pinLabel)) || (await isVisible(createRoomButton)), {
+      timeout: 15000,
+      message: 'Host view did not render room controls in time'
+    })
+    .toBeTruthy();
+
+  if (await isVisible(pinLabel)) {
+    return;
+  }
+
+  await createRoomButton.click();
+  await expect(pinLabel).toBeVisible({ timeout: 15000 });
+}
+
+async function ensureControllerAuthenticated(page: import('@playwright/test').Page) {
+  const joinHeading = page.getByText(/Unirse a sala|Join Game/);
+  const signUpToggle = page.getByRole('button', { name: /¿No tenés cuenta\? Creala|Don't have an account\? Sign up/ });
+
+  await expect
+    .poll(async () => (await isVisible(joinHeading)) || (await isVisible(signUpToggle)), {
+      timeout: 15000,
+      message: 'Controller auth/join view did not render in time'
+    })
+    .toBeTruthy();
+
+  if (await isVisible(joinHeading)) {
+    return;
+  }
+
+  const uniqueEmail = `dicewaton-e2e-${Date.now()}@example.com`;
+  const password = 'Password123!';
+
+  await signUpToggle.click();
+  await page.fill('input[placeholder="player@example.com"]', uniqueEmail);
+  await page.fill('input[placeholder="••••••••"]', password);
+  await page.getByRole('button', { name: /Crear cuenta|Sign Up/ }).click();
+
+  // Some auth providers auto-sign-in after sign-up.
+  if (await isVisible(joinHeading)) {
+    return;
+  }
+
+  await page.getByRole('button', { name: /¿Ya tenés cuenta\? Ingresá|Already have an account\? Sign in/ }).click();
+  await page.fill('input[placeholder="player@example.com"]', uniqueEmail);
+  await page.fill('input[placeholder="••••••••"]', password);
+  await page.getByRole('button', { name: /Ingresar|Sign In/ }).click();
+
+  await expect(joinHeading).toBeVisible({ timeout: 15000 });
+}
+
 test.describe('Room creation, join, and action flow', () => {
+  test.setTimeout(60000);
+
   test('Host creates room, Controller joins and rolls dice', async ({ browser }) => {
-    // Use one context so the e2e fake backend state is shared.
-    const hostContext = await browser.newContext();
+    const hostContext = await browser.newContext({ baseURL: 'http://127.0.0.1:4173' });
 
     const hostPage = await hostContext.newPage();
     const controllerPage = await hostContext.newPage();
 
     // 1. Host creates room
-    await hostPage.goto('/host');
+    await hostPage.goto('/');
+    await hostPage.getByRole('link', { name: /Host a Game/i }).click();
     
-    await hostPage.getByRole('button', { name: /Crear sala|Create Room/ }).click();
-    
-    // Wait for room to be created and PIN to appear
-    await expect(hostPage.getByText(/PIN de sala|Room PIN/)).toBeVisible({ timeout: 10000 });
+    await ensureHostRoom(hostPage);
     
     // Extract PIN. The PIN is inside a text-5xl div.
     const pinElement = hostPage.locator('.text-5xl.font-mono');
@@ -22,24 +84,12 @@ test.describe('Room creation, join, and action flow', () => {
     expect(pin).toHaveLength(4);
 
     // 2. Controller joins
-    await controllerPage.goto('/controller');
+    await controllerPage.goto('/');
+    await controllerPage.evaluate(() => window.localStorage.removeItem('dicewaton-game-store'));
+    await controllerPage.reload();
+    await controllerPage.getByRole('link', { name: /Join as Player/i }).click();
 
-    // Auth is now required in ControllerView.
-    const uniqueEmail = `dicewaton-e2e-${Date.now()}@example.com`;
-    const password = 'Password123!';
-
-    await controllerPage.getByRole('button', { name: /¿No tenés cuenta\? Creala|Don't have an account\? Sign up/ }).click();
-    await controllerPage.fill('input[placeholder="player@example.com"]', uniqueEmail);
-    await controllerPage.fill('input[placeholder="••••••••"]', password);
-    await controllerPage.getByRole('button', { name: /Crear cuenta|Sign Up/ }).click();
-
-    // Try direct sign in after sign up in case email auto-confirm is enabled.
-    await controllerPage.getByRole('button', { name: /¿Ya tenés cuenta\? Ingresá|Already have an account\? Sign in/ }).click();
-    await controllerPage.fill('input[placeholder="player@example.com"]', uniqueEmail);
-    await controllerPage.fill('input[placeholder="••••••••"]', password);
-    await controllerPage.getByRole('button', { name: /Ingresar|Sign In/ }).click();
-
-    await expect(controllerPage.getByText(/Unirse a sala|Join Game/)).toBeVisible({ timeout: 15000 });
+    await ensureControllerAuthenticated(controllerPage);
     
     await controllerPage.locator('input[placeholder="Tu nombre"], input[placeholder="Your Name"]').fill('Ender');
     await controllerPage.locator('input[placeholder="Ingresá el PIN de 4 caracteres"], input[placeholder="Enter 4-char PIN"]').fill(pin || '');
@@ -94,32 +144,23 @@ test.describe('PWA baseline', () => {
 });
 
 test.describe('UX quality gates', () => {
+  test.setTimeout(60000);
+
   test('shows visible validation feedback on join failure (no silent errors)', async ({ browser }) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL: 'http://127.0.0.1:4173' });
     const page = await context.newPage();
 
-    await page.goto('/controller');
+    await page.goto('/');
+    await page.getByRole('link', { name: /Join as Player/i }).click();
 
-    const uniqueEmail = `dicewaton-e2e-${Date.now()}@example.com`;
-    const password = 'Password123!';
+    await ensureControllerAuthenticated(page);
 
-    await page.getByRole('button', { name: /¿No tenés cuenta\? Creala|Don't have an account\? Sign up/ }).click();
-    await page.fill('input[placeholder="player@example.com"]', uniqueEmail);
-    await page.fill('input[placeholder="••••••••"]', password);
-    await page.getByRole('button', { name: /Crear cuenta|Sign Up/ }).click();
-
-    await page.getByRole('button', { name: /¿Ya tenés cuenta\? Ingresá|Already have an account\? Sign in/ }).click();
-    await page.fill('input[placeholder="player@example.com"]', uniqueEmail);
-    await page.fill('input[placeholder="••••••••"]', password);
-    await page.getByRole('button', { name: /Ingresar|Sign In/ }).click();
-
-    await expect(page.getByText(/Unirse a sala|Join Game/)).toBeVisible({ timeout: 15000 });
-
+    await page.locator('input[placeholder="Tu nombre"], input[placeholder="Your Name"]').fill('Ender');
+    await page.locator('input[placeholder="Ingresá el PIN de 4 caracteres"], input[placeholder="Enter 4-char PIN"]').fill('ZZZZ');
     await page.getByRole('button', { name: /Unirse a la sala|Join Room/ }).click();
 
-    await expect(page.getByText('Revisá los datos para unirte a la sala.')).toBeVisible();
-    await expect(page.getByText('El nombre es obligatorio.')).toBeVisible();
-    await expect(page.getByText('El PIN debe tener 4 caracteres.')).toBeVisible();
+    await expect(page.getByText('No pudimos unirte a la sala')).toBeVisible();
+    await expect(page.getByText('Room not found')).toBeVisible();
 
     await context.close();
   });

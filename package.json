@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
-    "test:a11y": "vitest run --config vitest.config.ts --include src/routes/ux-quality-gate.a11y.test.tsx",
+    "test:a11y": "vitest run --config vitest.config.ts src/routes/ux-quality-gate.a11y.test.tsx",
     "test:e2e": "playwright test",
     "security:sast": "semgrep scan --config .semgrep/security.yml --json --output semgrep-report.json",
     "security:secrets": "gitleaks detect --report-format json --report-path gitleaks-report.json --redact --no-git",
