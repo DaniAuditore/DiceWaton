@@ -1,0 +1,9 @@
+[
+  {
+    "RuleID": "generic-api-key",
+    "File": "src/config.ts",
+    "StartLine": 12,
+    "Description": "Hardcoded key",
+    "Status": "excepted"
+  }
+]

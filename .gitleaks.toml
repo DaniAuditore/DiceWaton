@@ -1,0 +1,16 @@
+title = "DiceWaton gitleaks baseline"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist only known-safe dummy values"
+paths = [
+  '''(^|/)dist/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)test-results/'''
+]
+regexes = [
+  '''dummy-key''',
+  '''http://localhost:54321'''
+]
