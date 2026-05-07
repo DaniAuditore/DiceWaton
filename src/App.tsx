@@ -8,9 +8,13 @@ import './App.css';
 function Home() {
   return (
     <main className="app-shell">
-      <section className="app-card text-center space-y-8">
-        <h1 className="text-4xl font-bold text-indigo-400">TTRPG Jackbox</h1>
-        <p className="text-slate-400">Elegí si querés crear una partida nueva o sumarte a una sala existente.</p>
+      <section className="app-card text-center space-y-8" aria-labelledby="home-title">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">Dados compartidos para mesa rolera</p>
+          <h1 id="home-title" className="text-4xl font-bold text-indigo-400">DiceWaton</h1>
+          <p className="text-slate-300">Creá una sala para dirigir tiradas o unite como jugador con el PIN del host.</p>
+          <p className="text-sm text-slate-400">La app puede abrir sin conexión; crear salas, unirse y tirar dados requiere internet.</p>
+        </div>
         
         <div className="flex flex-col space-y-4">
           <Link
@@ -79,8 +83,8 @@ function App() {
     <BrowserRouter>
       {(isOffline || offlineReady || applyUpdate) && (
         <div className="pwa-status-banner" role="status" aria-live="polite">
-          {isOffline && <span>Sin conexión. Usando versión en caché cuando esté disponible.</span>}
-          {!isOffline && offlineReady && <span>Modo offline listo para esta app.</span>}
+          {isOffline && <span>Sin conexión. Podés abrir DiceWaton en caché, pero salas, unión y tiradas en vivo requieren internet.</span>}
+          {!isOffline && offlineReady && <span>DiceWaton puede abrir sin conexión. Salas, unión y tiradas en vivo requieren internet.</span>}
           {applyUpdate && (
             <button type="button" onClick={applyUpdate} className="pwa-update-button">
               Actualizar app

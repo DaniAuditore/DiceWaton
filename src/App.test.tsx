@@ -48,7 +48,7 @@ describe('App routing resilience', () => {
 
     render(<App />);
 
-    expect(screen.getByRole('status').textContent).toContain('Sin conexión. Usando versión en caché cuando esté disponible.');
+    expect(screen.getByRole('status').textContent).toContain('Sin conexión. Podés abrir DiceWaton en caché, pero salas, unión y tiradas en vivo requieren internet.');
     expect(screen.getByText('Mock Controller')).toBeTruthy();
   });
 
@@ -57,7 +57,7 @@ describe('App routing resilience', () => {
 
     fireEvent(window, new CustomEvent('pwa:offline-ready'));
 
-    expect(screen.getByRole('status').textContent).toContain('Modo offline listo para esta app.');
+    expect(screen.getByRole('status').textContent).toContain('DiceWaton puede abrir sin conexión. Salas, unión y tiradas en vivo requieren internet.');
   });
 
   it('shows update action and applies it on click', () => {

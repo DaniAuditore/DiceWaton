@@ -43,9 +43,17 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 describe('ControllerView auth gating', () => {
+  const setOnlineState = (online: boolean) => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: online,
+    });
+  };
+
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    setOnlineState(true);
     mockChannel.on.mockReturnThis();
     mockChannel.subscribe.mockReturnThis();
     useGameStore.getState().reset();
@@ -207,5 +215,40 @@ describe('ControllerView auth gating', () => {
 
     expect(await screen.findByDisplayValue('WXYZ')).toBeTruthy();
     expect(screen.getByText('PIN WXYZ preparado. Iniciá sesión y confirmá tu nombre para unirte.')).toBeTruthy();
+  });
+
+  it('clearly blocks join while offline', async () => {
+    setOnlineState(false);
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Unirse requiere internet')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Unirse a la sala' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Podés abrir DiceWaton sin conexión, pero entrar a una sala y tirar dados en vivo requiere red.')).toBeTruthy();
+  });
+
+  it('shows connected controller realtime actions as network-required while offline', async () => {
+    setOnlineState(false);
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+    useGameStore.getState().setIdentity('controller-1', false);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Tiradas en vivo no disponibles')).toBeTruthy();
+    expect(screen.getByText('Necesitás internet para tirar dados en vivo en esta sala.')).toBeTruthy();
   });
 });

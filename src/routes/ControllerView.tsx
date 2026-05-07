@@ -29,6 +29,7 @@ export function ControllerView() {
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; pin?: string }>({});
   const [realtimeReady, setRealtimeReady] = useState(false);
   const [showRecovery, setShowRecovery] = useState(Boolean(roomId && roomPin));
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const channelRef = useRef<RealtimeChannel | null>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
 
@@ -48,6 +49,18 @@ export function ControllerView() {
 
     return message;
   };
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOnline(navigator.onLine);
+    syncOnlineState();
+    window.addEventListener('online', syncOnlineState);
+    window.addEventListener('offline', syncOnlineState);
+
+    return () => {
+      window.removeEventListener('online', syncOnlineState);
+      window.removeEventListener('offline', syncOnlineState);
+    };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }: AuthSessionResponse) => {
@@ -112,6 +125,12 @@ export function ControllerView() {
 
   const joinRoom = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOnline) {
+      setError('Necesitás internet para unirte a una sala en tiempo real.');
+      setUiStatus('controller-join', 'error', 'Necesitás internet para unirte a una sala en tiempo real.');
+      return;
+    }
+
     const nextErrors: { name?: string; pin?: string } = {};
     if (pinInput.length !== 4) {
       nextErrors.pin = 'El PIN debe tener 4 caracteres.';
@@ -163,7 +182,7 @@ export function ControllerView() {
     } finally {
       setLoading(false);
     }
-  }, [pinInput, playerName, setIdentity, setRoom, session?.user?.id, setUiStatus]);
+  }, [isOnline, pinInput, playerName, setIdentity, setRoom, session?.user?.id, setUiStatus]);
 
   const leaveRoom = useCallback(() => {
     if (channelRef.current) {
@@ -199,7 +218,7 @@ export function ControllerView() {
     }
   }, [playerName]);
 
-  const canSubmitJoin = useMemo(() => !loading && pinInput.length === 4 && Boolean(playerName.trim()), [loading, pinInput.length, playerName]);
+  const canSubmitJoin = useMemo(() => isOnline && !loading && pinInput.length === 4 && Boolean(playerName.trim()), [isOnline, loading, pinInput.length, playerName]);
 
   if (authLoading) {
     return (
@@ -215,7 +234,7 @@ export function ControllerView() {
 
   return (
     <main className="app-shell">
-      <section className="app-card text-center">
+      <section className={`app-card text-center ${roomId ? 'app-card--wide' : ''}`}>
         {!roomId ? (
           <>
             <h1 className="text-3xl font-bold mb-6">Unirse a sala</h1>
@@ -224,6 +243,13 @@ export function ControllerView() {
             </div>
             <p className="mb-4 text-sm text-slate-300">Ingresá tu nombre y el PIN. Si no iniciaste sesión, primero te vamos a pedir autenticarte.</p>
             <ScopedStatus scope="controller-join" />
+            {!isOnline ? (
+              <AlertBanner
+                tone="warning"
+                title="Unirse requiere internet"
+                message="Podés abrir DiceWaton sin conexión, pero entrar a una sala y tirar dados en vivo requiere red."
+              />
+            ) : null}
              
             {error ? <AlertBanner tone="error" title="No pudimos unirte a la sala" message={error} /> : null}
 
@@ -280,7 +306,7 @@ export function ControllerView() {
             </button>
           </>
         ) : (
-          <div className="space-y-6">
+          <div className="operational-grid">
             {showRecovery ? (
               <AlertBanner
                 tone="info"
@@ -289,12 +315,12 @@ export function ControllerView() {
               />
             ) : null}
             {showRecovery ? (
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <div className="control-cluster sm:justify-center md:col-span-2">
                 <Button type="button" onClick={continueStoredRoom}>Continuar en sala {roomPin}</Button>
                 <Button type="button" variant="secondary" onClick={leaveRoom}>Salir</Button>
               </div>
             ) : null}
-            <div className="bg-slate-900 p-4 rounded-lg flex justify-between items-center">
+            <div className="operational-panel operational-panel--sticky bg-slate-900 p-4 rounded-lg flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
               <div>
                 <p className="text-slate-400 text-sm mb-1 text-left">Conectado a la sala</p>
                 <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
@@ -314,9 +340,17 @@ export function ControllerView() {
                 </button>
               </div>
             </div>
+            <div className="operational-panel space-y-4">
             <ScopedStatus scope="controller-realtime" />
             <ScopedStatus scope="controller-join" />
-             
+            {!isOnline ? (
+              <AlertBanner
+                tone="warning"
+                title="Tiradas en vivo no disponibles"
+                message="Conectate a internet para sincronizar la sala y enviar tiradas."
+              />
+            ) : null}
+              
             <div className="border-t border-slate-700 pt-6">
                 <h2 className="text-xl font-semibold mb-4">Controlador</h2>
               <div className="bg-slate-900 p-6 rounded-lg mb-6">
@@ -326,10 +360,11 @@ export function ControllerView() {
               <DiceTray
                 onRoll={handleRoll}
                 disabled={!realtimeReady}
-                disabledMessage="Esperá a que la sala confirme la conexión en tiempo real antes de tirar."
+                disabledMessage={isOnline ? 'Esperá a que la sala confirme la conexión en tiempo real antes de tirar.' : 'Necesitás internet para tirar dados en vivo en esta sala.'}
               />
               <MacroManager onRoll={handleRoll} />
               <DiceLog logs={logs} />
+            </div>
             </div>
           </div>
         )}

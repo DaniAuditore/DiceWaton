@@ -22,9 +22,17 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 describe('Supabase integration lifecycle in HostView', () => {
+  const setOnlineState = (online: boolean) => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: online,
+    });
+  };
+
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    setOnlineState(true);
     useGameStore.getState().reset();
     useUiStore.setState({ statusByScope: {}, messageByScope: {} });
     
@@ -165,5 +173,43 @@ describe('Supabase integration lifecycle in HostView', () => {
     expect(useGameStore.getState().roomId).toBeNull();
     expect(useGameStore.getState().playerId).toBe('host-123');
     expect(await screen.findByRole('button', { name: 'Crear sala' })).toBeTruthy();
+  });
+
+  it('clearly blocks host realtime actions while offline', async () => {
+    setOnlineState(false);
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Acciones en vivo no disponibles')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Crear sala' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('shows context actions as network-required in an existing hosted room', async () => {
+    setOnlineState(false);
+    useGameStore.getState().setIdentity('host-123', true);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+
+    const mockChannel = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      track: vi.fn().mockResolvedValue({}),
+      presenceState: vi.fn().mockReturnValue({}),
+    };
+    (supabase.channel as any).mockReturnValue(mockChannel);
+
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Conectate a internet para enviar contexto.')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Exploración' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Combate' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Social' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

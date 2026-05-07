@@ -191,10 +191,12 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 10px 16px;
   background: #172554;
   color: #eff6ff;
   border-bottom: 1px solid #1d4ed8;
+  text-align: center;
 }
 
 .pwa-update-button {

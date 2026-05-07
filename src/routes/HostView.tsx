@@ -15,8 +15,21 @@ export function HostView() {
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [logs, setLogs] = useState<RollEvent[]>([]);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const channelRef = useRef<any>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOnline(navigator.onLine);
+    syncOnlineState();
+    window.addEventListener('online', syncOnlineState);
+    window.addEventListener('offline', syncOnlineState);
+
+    return () => {
+      window.removeEventListener('online', syncOnlineState);
+      window.removeEventListener('offline', syncOnlineState);
+    };
+  }, []);
 
   const ensureAnonymousHostUser = async () => {
     let { data: authData } = await supabase.auth.getUser();
@@ -91,6 +104,11 @@ export function HostView() {
   }, [roomId, playerId, setUiStatus]);
 
   const createRoom = useCallback(async () => {
+    if (!isOnline) {
+      setUiStatus('host-room', 'error', 'Necesitás internet para crear una sala en tiempo real. Volvé a intentarlo cuando recuperes conexión.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setUiStatus('host-room', 'loading', 'Creando sala...');
@@ -120,9 +138,14 @@ export function HostView() {
     } finally {
       setLoading(false);
     }
-  }, [setIdentity, setRoom, setUiStatus]);
+  }, [isOnline, setIdentity, setRoom, setUiStatus]);
 
   const broadcastContext = useCallback((newContext: string) => {
+    if (!isOnline) {
+      setUiStatus('host-context', 'error', 'Necesitás internet para enviar cambios de contexto a la sala.');
+      return;
+    }
+
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -133,7 +156,7 @@ export function HostView() {
     } else {
       setUiStatus('host-context', 'error', 'La sala todavía no está conectada. Reintentá en unos segundos.');
     }
-  }, [setUiStatus]);
+  }, [isOnline, setUiStatus]);
 
   const closeRoom = useCallback(() => {
     if (channelRef.current) {
@@ -192,13 +215,20 @@ export function HostView() {
 
   return (
     <main className="app-shell">
-      <section className="app-card text-center">
+      <section className={`app-card text-center ${roomId ? 'app-card--wide' : ''}`}>
         <h1 className="text-3xl font-bold mb-6">Administrar sala</h1>
         <div className="mb-4 text-left">
           <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
         </div>
         <ScopedStatus scope="host-room" />
         <ScopedStatus scope="host-realtime" />
+        {!isOnline ? (
+          <AlertBanner
+            tone="warning"
+            title="Acciones en vivo no disponibles"
+            message="DiceWaton puede quedar abierto, pero crear salas y enviar contexto requiere internet."
+          />
+        ) : null}
         
         {error ? <AlertBanner tone="error" title="No se pudo crear la sala" message={error} onRetry={createRoom} /> : null}
 
@@ -206,19 +236,21 @@ export function HostView() {
           <Button
             onClick={createRoom}
             loading={loading}
+            disabled={!isOnline}
             className="w-full"
           >
             Crear sala
           </Button>
         ) : (
-          <div className="space-y-6">
+          <div className="operational-grid">
+            <div className="operational-panel operational-panel--sticky space-y-6">
             <div>
               <p className="text-slate-400 text-sm mb-1">PIN de sala</p>
               <div className="text-5xl font-mono font-bold tracking-widest text-indigo-400 bg-slate-900 p-4 rounded-lg">
                 {roomPin}
               </div>
               <p className="mt-2 text-sm text-slate-300">Compartí este PIN: los jugadores lo ingresan en “Unirse a sala”.</p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <div className="control-cluster mt-3 sm:justify-center">
                 <Button type="button" variant="secondary" onClick={copyRoomPin} aria-label={`Copiar PIN ${roomPin}`}>
                   Copiar PIN
                 </Button>
@@ -249,20 +281,23 @@ export function HostView() {
 
             <div className="border-t border-slate-700 pt-6">
                <h2 className="text-xl font-semibold mb-4">Contexto de juego</h2>
-              <div className="flex gap-2">
-                 <button onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">Exploración</button>
-                 <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combate</button>
-                  <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
+              <p className="mb-3 text-sm text-slate-400">Estos cambios se envían en vivo a los controles conectados.</p>
+              <div className="control-cluster">
+                 <button type="button" disabled={!isOnline} onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm">Exploración</button>
+                 <button type="button" disabled={!isOnline} onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm text-red-100">Combate</button>
+                  <button type="button" disabled={!isOnline} onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm text-blue-100">Social</button>
               </div>
+              {!isOnline ? <p className="mt-2 text-sm text-amber-200">Conectate a internet para enviar contexto.</p> : null}
               <ScopedStatus scope="host-context" className="mt-3 text-left" />
             </div>
+            </div>
 
-            <div className="border-t border-slate-700 pt-6">
+            <div className="operational-panel border-t border-slate-700 pt-6 md:border-t-0 md:pt-0">
                <h2 className="text-xl font-semibold mb-4">Actividad de juego</h2>
               <DiceLog logs={logs} />
             </div>
 
-            <div className="border-t border-slate-700 pt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <div className="operational-panel border-t border-slate-700 pt-6 control-cluster sm:justify-center md:col-span-2">
               <Button type="button" variant="danger" onClick={closeRoom}>Cerrar sala</Button>
               <Link to="/" className="rounded bg-slate-700 px-4 py-2 font-bold text-white transition-colors hover:bg-slate-600">
                 Volver al inicio

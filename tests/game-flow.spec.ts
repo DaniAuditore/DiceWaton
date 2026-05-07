@@ -105,7 +105,7 @@ test.describe('Room creation, join, and action flow', () => {
     await controllerPage.getByRole('button', { name: 'Unirse a la sala' }).click();
 
     // Wait for join success (waiting for context UI)
-    await expect(controllerPage.getByText('Conectado a la sala')).toBeVisible({ timeout: 10000 });
+    await expect(controllerPage.getByText('Conectado a la sala', { exact: true })).toBeVisible({ timeout: 10000 });
 
     // Verify host sees the player before navigation resilience checks.
     await expect(hostPage.getByText('Ender')).toBeVisible({ timeout: 10000 });
@@ -114,7 +114,7 @@ test.describe('Room creation, join, and action flow', () => {
     await hostPage.click('text=Combate');
 
     // Verify controller sees combat context
-    await expect(controllerPage.getByText('COMBAT')).toBeVisible();
+    await expect(controllerPage.getByText('COMBAT', { exact: true })).toBeVisible();
 
     // 4. Controller performs an action (rolls dice)
     await controllerPage.click('button:has-text("d20")');
@@ -123,13 +123,13 @@ test.describe('Room creation, join, and action flow', () => {
     await expect(hostPage.getByText(/Ender.*(tiró|rolled) d20/)).toBeVisible({ timeout: 10000 });
 
     await controllerPage.reload();
-    await expect(controllerPage.getByText('Conectado a la sala')).toBeVisible({ timeout: 10000 });
+    await expect(controllerPage.getByText('Conectado a la sala', { exact: true })).toBeVisible({ timeout: 10000 });
 
     await controllerPage.goBack();
     await expect(controllerPage.getByRole('link', { name: 'Crear una sala' })).toBeVisible({ timeout: 10000 });
 
     await controllerPage.goForward();
-    await expect(controllerPage.getByText('Conectado a la sala')).toBeVisible({ timeout: 10000 });
+    await expect(controllerPage.getByText('Conectado a la sala', { exact: true })).toBeVisible({ timeout: 10000 });
      
     await hostContext.close();
   });
@@ -176,16 +176,16 @@ test.describe('UX quality gates', () => {
     await page.getByRole('button', { name: 'Unirse a la sala' }).click();
 
     await expect(page.getByText('No pudimos unirte a la sala')).toBeVisible();
-    await expect(page.getByText('No encontramos una sala con ese PIN.')).toBeVisible();
+    await expect(page.getByText('No encontramos una sala con ese PIN.').first()).toBeVisible();
 
     await context.close();
   });
 
   test('keeps primary flows readable across mobile, tablet, and desktop viewports', async ({ browser }) => {
     const viewports = [
-      { name: 'mobile', width: 390, height: 844 },
+      { name: 'mobile', width: 375, height: 844 },
       { name: 'tablet', width: 768, height: 1024 },
-      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'desktop', width: 1280, height: 900 },
     ];
 
     for (const viewport of viewports) {
@@ -202,8 +202,14 @@ test.describe('UX quality gates', () => {
       await page.getByRole('link', { name: 'Crear una sala' }).click();
       await ensureHostRoom(page);
       await expect(page.getByText('Esperando que se unan jugadores...')).toBeVisible();
+      await page.getByRole('button', { name: /Copiar PIN/ }).click();
+      await expect(page.getByText(/PIN .*copiado|Copialo manualmente|No pudimos copiar/)).toBeVisible();
       await expect(page.getByRole('button', { name: 'Combate' })).toBeVisible();
       await expectNoHorizontalOverflow(page);
+
+      await page.getByRole('button', { name: 'Cerrar sala' }).click();
+      await expect(page.getByText('Sala cerrada. Podés crear una nueva cuando quieras.')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Crear sala' })).toBeVisible();
 
       await page.evaluate(() => window.localStorage.removeItem('dicewaton-game-store'));
       await page.goto('/controller');
@@ -214,5 +220,55 @@ test.describe('UX quality gates', () => {
 
       await context.close();
     }
+  });
+
+  test('supports recovery, leave, and macro validation without layout regressions', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: 'http://127.0.0.1:4173',
+      viewport: { width: 375, height: 844 },
+    });
+    await context.addInitScript(() => {
+      sessionStorage.setItem('dw:e2e:session', JSON.stringify({ user: { id: 'controller-1', email: 'controller@example.com' } }));
+      localStorage.setItem('dicewaton-game-store', JSON.stringify({
+        state: {
+          playerId: 'controller-1',
+          isHost: false,
+          roomId: 'room-recover',
+          roomPin: 'WXYZ',
+          gameContext: 'IDLE',
+          allowedActions: [],
+        },
+        version: 0,
+      }));
+      localStorage.setItem('dw:e2e:macros', JSON.stringify([
+        {
+          id: 'macro-invalid',
+          user_id: 'controller-1',
+          name: 'Legacy inválido',
+          dice_expression: 'abc',
+          created_at: new Date().toISOString(),
+        },
+      ]));
+    });
+    const page = await context.newPage();
+
+    await page.goto('/controller');
+
+    await expect(page.getByText('Sala guardada encontrada')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continuar en sala WXYZ' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continuar en sala WXYZ' }).click();
+    await expect(page.getByText('Continuás en la sala WXYZ.')).toBeVisible();
+    await expect(page.getByText('Conectado a la sala', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    await page.getByRole('button', { name: 'Tirar' }).click();
+    await expect(page.getByText(/No se tiró "Legacy inválido"/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Salir de esta sala' }).click();
+    await expect(page.getByText('Saliste de la sala. Tu sesión sigue abierta.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unirse a la sala' })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    await context.close();
   });
 });

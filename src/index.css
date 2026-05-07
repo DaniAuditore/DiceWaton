@@ -5,6 +5,7 @@
   --space-page-y: clamp(1rem, 4vw, 2.5rem);
   --radius-card: 0.875rem;
   --layout-max-readable: 42rem;
+  --layout-max-operational: 72rem;
   --focus-ring-color: #6366f1;
   --focus-ring-width: 2px;
   --font-size-body: clamp(1rem, 0.95rem + 0.2vw, 1.0625rem);
@@ -34,6 +35,57 @@ body {
   border-radius: var(--radius-card);
   padding: clamp(1.25rem, 3vw, 2rem);
   box-shadow: 0 10px 20px rgb(0 0 0 / 0.25);
+}
+
+.app-card--wide {
+  width: min(100%, var(--layout-max-operational));
+}
+
+.operational-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 2vw, 1.5rem);
+  align-items: start;
+  text-align: left;
+}
+
+.operational-panel {
+  min-width: 0;
+}
+
+.operational-panel--sticky {
+  align-self: start;
+}
+
+.control-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.control-cluster > * {
+  min-width: min(100%, 10rem);
+}
+
+@media (min-width: 48rem) {
+  .operational-grid {
+    grid-template-columns: minmax(18rem, 0.9fr) minmax(0, 1.35fr);
+  }
+
+  .operational-panel--sticky {
+    position: sticky;
+    top: 4.5rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .app-shell {
+    align-items: stretch;
+  }
+
+  .app-card {
+    overflow-wrap: anywhere;
+  }
 }
 
 :focus-visible {
