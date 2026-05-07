@@ -137,4 +137,36 @@ describe('ControllerView auth gating', () => {
     expect(screen.getByText('El nombre es obligatorio.')).toBeTruthy();
     expect(screen.getByText('El PIN debe tener 4 caracteres.')).toBeTruthy();
   });
+
+  it('restores a coherent connected state after remount with a valid session', async () => {
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: { user: { id: 'controller-1' } } },
+    });
+
+    useGameStore.getState().setIdentity('controller-1', false);
+    useGameStore.getState().setRoom('room-1', 'ABCD');
+    useGameStore.getState().updateGameState('COMBAT', []);
+
+    const firstRender = render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Conectado a la sala')).toBeTruthy();
+    expect(screen.getByText('ABCD')).toBeTruthy();
+    expect(screen.getByText('COMBAT')).toBeTruthy();
+
+    firstRender.unmount();
+
+    render(
+      <MemoryRouter>
+        <ControllerView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Conectado a la sala')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeTruthy();
+    expect(screen.queryByText('Unirse a sala')).toBeNull();
+  });
 });

@@ -10,20 +10,20 @@ function Home() {
     <main className="app-shell">
       <section className="app-card text-center space-y-8">
         <h1 className="text-4xl font-bold text-indigo-400">TTRPG Jackbox</h1>
-        <p className="text-slate-400">Welcome! Are you hosting a new game or joining an existing one?</p>
+        <p className="text-slate-400">Elegí si querés crear una partida nueva o sumarte a una sala existente.</p>
         
         <div className="flex flex-col space-y-4">
           <Link
             to="/host"
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors text-lg"
           >
-            Host a Game
+            Crear una sala
           </Link>
           <Link
             to="/controller"
             className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-4 rounded-lg transition-colors text-lg"
           >
-            Join as Player
+            Unirse como jugador
           </Link>
         </div>
       </section>

@@ -14,6 +14,7 @@ vi.mock('../lib/supabase', () => ({
       signInAnonymously: vi.fn(),
       getUser: vi.fn(),
     },
+    from: vi.fn(),
     channel: vi.fn(),
     removeChannel: vi.fn(),
   }
@@ -29,6 +30,14 @@ describe('Supabase integration lifecycle in HostView', () => {
     (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
     (supabase.auth.signInAnonymously as any).mockResolvedValue({ data: { user: { id: 'anon-1' } } });
     (supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'host-123' } } });
+    (supabase.from as any).mockReturnValue({
+      insert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: 'room-1', pin: 'ABCD' },
+        error: null,
+      }),
+    });
   });
 
   it('subscribes to a room channel when roomId is set', async () => {
@@ -92,5 +101,19 @@ describe('Supabase integration lifecycle in HostView', () => {
 
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
+  });
+
+  it('shows empty-state guidance after a successful room creation', async () => {
+    render(
+      <MemoryRouter>
+        <HostView />
+      </MemoryRouter>
+    );
+
+    screen.getByRole('button', { name: 'Crear sala' }).click();
+
+    expect(await screen.findByText('ABCD')).toBeTruthy();
+    expect(screen.getByText('Esperando que se unan jugadores...')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Jugadores (0)' })).toBeTruthy();
   });
 });

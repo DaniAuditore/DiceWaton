@@ -31,7 +31,7 @@ export function HostView() {
     }
 
     if (!authData.user?.id) {
-      throw new Error('Not authenticated');
+      throw new Error('No pudimos validar la sesión del host. Reintentá.');
     }
 
     return authData.user.id;
@@ -178,8 +178,8 @@ export function HostView() {
                <h2 className="text-xl font-semibold mb-4">Contexto de juego</h2>
               <div className="flex gap-2">
                  <button onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">Exploración</button>
-                <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combat</button>
-                 <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
+                 <button onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-sm text-red-100">Combate</button>
+                  <button onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-sm text-blue-100">Social</button>
               </div>
             </div>
 

@@ -30,6 +30,20 @@ export function ControllerView() {
   type AuthSessionResponse = { data: { session: Session | null } };
   type BroadcastPayload = { payload: { context: unknown } };
 
+  const getJoinErrorMessage = (err: unknown) => {
+    const message = err instanceof Error ? err.message : 'No pudimos completar la acción.';
+
+    if (message === 'Not authenticated') {
+      return 'Necesitás iniciar sesión para unirte a la sala.';
+    }
+
+    if (message === 'Room not found') {
+      return 'No encontramos una sala con ese PIN.';
+    }
+
+    return message;
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }: AuthSessionResponse) => {
       setSession(session);
@@ -122,8 +136,9 @@ export function ControllerView() {
       setRoom(data.id, data.pin);
       setUiStatus('controller-join', 'success', 'Ingreso exitoso a la sala.');
     } catch (err: any) {
-      setError(err.message);
-      setUiStatus('controller-join', 'error', err.message);
+      const message = getJoinErrorMessage(err);
+      setError(message);
+      setUiStatus('controller-join', 'error', message);
     } finally {
       setLoading(false);
     }
@@ -235,7 +250,7 @@ export function ControllerView() {
                 onClick={() => supabase.auth.signOut()} 
                 className="text-sm text-slate-400 hover:text-white"
               >
-                Sign Out
+                Cerrar sesión
               </button>
             </div>
             

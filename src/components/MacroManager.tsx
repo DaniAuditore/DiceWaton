@@ -7,7 +7,7 @@ import { TextInput } from './ui/TextInput';
 import { useUiStore } from '../stores/useUiStore';
 
 type MacroManagerProps = {
-  onRoll: (diceType: string, result: number, details?: string) => void;
+  onRoll: (diceType: string, result: number, details?: string) => void | Promise<void>;
 };
 
 export function MacroManager({ onRoll }: MacroManagerProps) {
@@ -19,6 +19,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   const [editingName, setEditingName] = useState('');
   const [editingExpression, setEditingExpression] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedRoll, setLastFailedRoll] = useState<{ macroName: string; expr: string } | null>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
 
   useEffect(() => {
@@ -45,10 +46,20 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
     }
   };
 
-  const handleRollMacro = useCallback((macroName: string, expr: string) => {
-    const roll = parseAndRollDetailed(expr);
-    onRoll(`${macroName} (${expr})`, roll.total, formatRollBreakdown(roll));
-  }, [onRoll]);
+  const handleRollMacro = useCallback(async (macroName: string, expr: string) => {
+    setError(null);
+    setLastFailedRoll({ macroName, expr });
+
+    try {
+      const roll = parseAndRollDetailed(expr);
+      await onRoll(`${macroName} (${expr})`, roll.total, formatRollBreakdown(roll));
+      setUiStatus('macro-roll', 'success', `Macro "${macroName}" ejecutada.`);
+    } catch {
+      const message = 'No pudimos ejecutar el macro. Reintentá sin perder el contexto actual.';
+      setError(message);
+      setUiStatus('macro-roll', 'error', message);
+    }
+  }, [onRoll, setUiStatus]);
 
   const beginEdit = (id: string, currentName: string, currentExpression: string) => {
     setEditingId(id);
@@ -92,7 +103,14 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   return (
     <div className="bg-slate-900 p-4 rounded-lg mt-6">
       <h3 className="text-lg font-semibold mb-3">Mis macros</h3>
-      {error ? <AlertBanner tone="error" title="Error de macros" message={error} /> : null}
+      {error ? (
+        <AlertBanner
+          tone="error"
+          title="Error de macros"
+          message={error}
+          onRetry={lastFailedRoll ? () => void handleRollMacro(lastFailedRoll.macroName, lastFailedRoll.expr) : undefined}
+        />
+      ) : null}
       
       <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
         {macros.length === 0 ? (
@@ -141,7 +159,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
                 ) : (
                   <>
                     <Button
-                      onClick={() => handleRollMacro(macro.name, macro.dice_expression)}
+                      onClick={() => void handleRollMacro(macro.name, macro.dice_expression)}
                       className="bg-emerald-600 hover:bg-emerald-500 text-sm py-1 px-3"
                     >
                       Tirar
