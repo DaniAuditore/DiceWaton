@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const severityOrder = ['low', 'medium', 'high', 'critical'];
+const statusOrder = ['new', 'existing', 'excepted'];
 
 function normalizeSeverity(value) {
   if (!value) return 'low';
@@ -11,7 +12,12 @@ function normalizeSeverity(value) {
   return 'low';
 }
 
-function toStatus() {
+function toStatus(value) {
+  if (!value) return 'new';
+  const normalized = String(value).toLowerCase();
+  if (statusOrder.includes(normalized)) return normalized;
+  if (normalized === 'old' || normalized === 'baseline') return 'existing';
+  if (normalized === 'allowlisted' || normalized === 'waived') return 'excepted';
   return 'new';
 }
 
@@ -29,7 +35,7 @@ function semgrepFindings(payload) {
   return payload.results.map((item) => ({
     tool: 'semgrep',
     severity: normalizeSeverity(item.extra?.severity),
-    status: toStatus(),
+    status: toStatus(item.status ?? item.extra?.metadata?.status),
     ruleId: item.check_id ?? 'semgrep/unknown',
     file: item.path,
     line: item.start?.line,
@@ -43,7 +49,7 @@ function gitleaksFindings(payload) {
   return payload.map((item) => ({
     tool: 'gitleaks',
     severity: 'critical',
-    status: toStatus(),
+    status: toStatus(item.Status ?? item.status ?? item.State),
     ruleId: item.RuleID ?? 'gitleaks/unknown',
     file: item.File,
     line: item.StartLine,
@@ -58,7 +64,7 @@ function npmAuditFindings(payload) {
   return Object.entries(vulnerabilities).map(([pkg, vuln]) => ({
     tool: 'npm-audit',
     severity: normalizeSeverity(vuln.severity),
-    status: toStatus(),
+    status: toStatus(vuln.status),
     ruleId: `npm-audit/${pkg}`,
     file: 'package-lock.json',
     evidence: vuln.via?.map((x) => (typeof x === 'string' ? x : x.title)).filter(Boolean).join('; '),
@@ -71,7 +77,7 @@ function sanityFindings(payload, toolName) {
   return payload.findings.map((item) => ({
     tool: toolName,
     severity: normalizeSeverity(item.severity),
-    status: toStatus(),
+    status: toStatus(item.status),
     ruleId: item.ruleId ?? `${toolName}/unknown`,
     file: item.file,
     line: item.line,

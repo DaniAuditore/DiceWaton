@@ -1,0 +1,10 @@
+{
+  "vulnerabilities": {
+    "left-pad": {
+      "severity": "medium",
+      "via": ["CVE-2026-0001"],
+      "fixAvailable": true,
+      "status": "existing"
+    }
+  }
+}
