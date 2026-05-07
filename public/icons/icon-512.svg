@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="DiceWaton">
+  <rect width="512" height="512" rx="110" fill="#020617"/>
+  <rect x="76" y="76" width="360" height="360" rx="76" fill="#312e81"/>
+  <circle cx="188" cy="188" r="28" fill="#e2e8f0"/>
+  <circle cx="324" cy="256" r="28" fill="#e2e8f0"/>
+  <circle cx="188" cy="324" r="28" fill="#e2e8f0"/>
+  <circle cx="324" cy="324" r="28" fill="#e2e8f0"/>
+</svg>

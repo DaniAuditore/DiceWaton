@@ -68,3 +68,27 @@ test.describe('Room creation, join, and action flow', () => {
     await hostContext.close();
   });
 });
+
+test.describe('PWA baseline', () => {
+  test('manifest exposes installability baseline fields', async ({ page }) => {
+    const response = await page.request.get('/manifest.webmanifest');
+    expect(response.ok()).toBeTruthy();
+
+    const manifest = await response.json();
+    expect(manifest.name).toBe('DiceWaton');
+    expect(manifest.short_name).toBe('DiceWaton');
+    expect(manifest.start_url).toBe('/');
+    expect(manifest.display).toBe('standalone');
+    expect(manifest.theme_color).toBe('#312e81');
+    expect(manifest.background_color).toBe('#020617');
+    expect(Array.isArray(manifest.icons)).toBeTruthy();
+    expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('index metadata exposes PWA hooks', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('link[rel="manifest"][href="/manifest.webmanifest"]')).toHaveCount(1);
+    await expect(page.locator('meta[name="theme-color"][content="#312e81"]')).toHaveCount(1);
+    await expect(page.locator('meta[name="application-name"][content="DiceWaton"]')).toHaveCount(1);
+  });
+});

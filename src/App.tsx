@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { HostView } from './routes/HostView';
 import { ControllerView } from './routes/ControllerView';
@@ -48,8 +49,45 @@ function NotFound() {
 }
 
 function App() {
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineReady, setOfflineReady] = useState(false);
+  const [applyUpdate, setApplyUpdate] = useState<null | (() => void)>(null);
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOffline(!navigator.onLine);
+    const onOfflineReady = () => setOfflineReady(true);
+    const onUpdateAvailable = (event: Event) => {
+      const customEvent = event as CustomEvent<{ applyUpdate?: () => void }>;
+      setApplyUpdate(() => customEvent.detail?.applyUpdate ?? null);
+    };
+
+    syncOnlineState();
+    window.addEventListener('online', syncOnlineState);
+    window.addEventListener('offline', syncOnlineState);
+    window.addEventListener('pwa:offline-ready', onOfflineReady as EventListener);
+    window.addEventListener('pwa:update-available', onUpdateAvailable as EventListener);
+
+    return () => {
+      window.removeEventListener('online', syncOnlineState);
+      window.removeEventListener('offline', syncOnlineState);
+      window.removeEventListener('pwa:offline-ready', onOfflineReady as EventListener);
+      window.removeEventListener('pwa:update-available', onUpdateAvailable as EventListener);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
+      {(isOffline || offlineReady || applyUpdate) && (
+        <div className="pwa-status-banner" role="status" aria-live="polite">
+          {isOffline && <span>Sin conexión. Usando versión en caché cuando esté disponible.</span>}
+          {!isOffline && offlineReady && <span>Modo offline listo para esta app.</span>}
+          {applyUpdate && (
+            <button type="button" onClick={applyUpdate} className="pwa-update-button">
+              Actualizar app
+            </button>
+          )}
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/host" element={<HostView />} />
