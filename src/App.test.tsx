@@ -52,6 +52,14 @@ describe('App routing resilience', () => {
     expect(screen.getByText('Mock Controller')).toBeTruthy();
   });
 
+  it('renders the landing hero with both entry points', () => {
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'DiceWaton' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Crear una sala' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Unirse como jugador' })).toBeTruthy();
+  });
+
   it('shows offline-ready status when cached shell becomes available', () => {
     render(<App />);
 

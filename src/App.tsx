@@ -8,25 +8,38 @@ import './App.css';
 function Home() {
   return (
     <main className="app-shell">
-      <section className="app-card text-center space-y-8" aria-labelledby="home-title">
-        <div className="space-y-3">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">Dados compartidos para mesa rolera</p>
-          <h1 id="home-title" className="text-4xl font-bold text-indigo-400">DiceWaton</h1>
-          <p className="text-slate-300">Creá una sala para dirigir tiradas o unite como jugador con el PIN del host.</p>
-          <p className="text-sm text-slate-400">La app puede abrir sin conexión; crear salas, unirse y tirar dados requiere internet.</p>
+      <section className="app-card app-card--hero" aria-labelledby="home-title">
+        <header className="app-hero">
+          <p className="app-kicker">Mesa rolera digital</p>
+          <h1 id="home-title" className="app-title">DiceWaton</h1>
+          <p className="app-lead">
+            Creá una sala como host o entrá con el PIN para tirar dados y usar macros en tiempo real.
+          </p>
+          <p className="app-note">
+            Diseñado mobile-first, con foco en legibilidad, feedback inmediato y conexión visible.
+          </p>
+        </header>
+
+        <div className="app-feature-grid" aria-label="Capacidades principales">
+          <article className="app-feature-card">
+            <h2 className="app-feature-title">Host</h2>
+            <p className="app-feature-copy">Abrí la mesa, compartí el PIN y marcá el contexto de juego sin perder claridad.</p>
+          </article>
+          <article className="app-feature-card">
+            <h2 className="app-feature-title">Jugador</h2>
+            <p className="app-feature-copy">Unite con tu nombre y PIN, tirá dados y seguí el estado de la sala en vivo.</p>
+          </article>
+          <article className="app-feature-card">
+            <h2 className="app-feature-title">PWA</h2>
+            <p className="app-feature-copy">La app puede abrir sin conexión; las acciones en vivo requieren internet.</p>
+          </article>
         </div>
-        
-        <div className="flex flex-col space-y-4">
-          <Link
-            to="/host"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors text-lg"
-          >
+
+        <div className="app-cta-group" aria-label="Acciones principales">
+          <Link to="/host" className="app-cta app-cta--primary">
             Crear una sala
           </Link>
-          <Link
-            to="/controller"
-            className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-4 rounded-lg transition-colors text-lg"
-          >
+          <Link to="/controller" className="app-cta app-cta--secondary">
             Unirse como jugador
           </Link>
         </div>
@@ -38,13 +51,11 @@ function Home() {
 function NotFound() {
   return (
     <main className="app-shell">
-      <section className="app-card text-center space-y-6" aria-labelledby="not-found-title">
-        <h1 id="not-found-title" className="text-3xl font-bold text-amber-300">Página no encontrada</h1>
-        <p className="text-slate-300">La ruta que intentaste abrir no existe o ya no está disponible.</p>
-        <Link
-          to="/"
-          className="w-full inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg"
-        >
+      <section className="app-card app-card--narrow app-card--centered" aria-labelledby="not-found-title">
+        <p className="app-kicker">404</p>
+        <h1 id="not-found-title" className="app-title app-title--compact">Página no encontrada</h1>
+        <p className="app-lead app-lead--compact">La ruta que intentaste abrir no existe o ya no está disponible.</p>
+        <Link to="/" className="app-cta app-cta--primary app-cta--full">
           Volver al inicio
         </Link>
       </section>
