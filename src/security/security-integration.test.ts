@@ -68,4 +68,61 @@ describe('security baseline integration scenarios', () => {
     expect(gate.code).toBe(1);
     expect(gate.stderr).toContain('result=fail');
   });
+
+  it('secrets allowlisted/excepted does not block enforce gate', async () => {
+    const cwd = await setupCase({
+      'gitleaks-report': [
+        {
+          RuleID: 'generic-api-key',
+          File: 'src/example.ts',
+          StartLine: 3,
+          Description: 'Dummy test token',
+          Status: 'excepted',
+        },
+      ],
+    });
+
+    const gate = await runNode(gatePath, cwd, { SECURITY_GATE_MODE: 'enforce' });
+    expect(gate.code).toBe(0);
+
+    const report = JSON.parse(await readFile(path.join(cwd, 'security-report.json'), 'utf8'));
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0].tool).toBe('gitleaks');
+    expect(report.findings[0].status).toBe('excepted');
+  });
+
+  it('dependency gate blocks runtime critical while dev medium remains non-blocking', async () => {
+    const cwd = await setupCase({
+      'deps-report': {
+        vulnerabilities: {
+          axios: {
+            severity: 'critical',
+            status: 'new',
+            dev: false,
+            via: ['CVE-2026-9001'],
+            fixAvailable: true,
+          },
+          vitest: {
+            severity: 'medium',
+            status: 'new',
+            dev: true,
+            via: ['CVE-2026-1111'],
+            fixAvailable: false,
+          },
+        },
+      },
+    });
+
+    const gate = await runNode(gatePath, cwd, { SECURITY_GATE_MODE: 'enforce' });
+    expect(gate.code).toBe(1);
+    expect(gate.stderr).toContain('result=fail');
+
+    const report = JSON.parse(await readFile(path.join(cwd, 'security-report.json'), 'utf8'));
+    const runtimeCritical = report.findings.find((f: any) => f.ruleId === 'npm-audit/axios');
+    const devMedium = report.findings.find((f: any) => f.ruleId === 'npm-audit/vitest');
+    expect(runtimeCritical?.severity).toBe('critical');
+    expect(runtimeCritical?.dependencyType).toBe('runtime');
+    expect(devMedium?.severity).toBe('medium');
+    expect(devMedium?.dependencyType).toBe('dev');
+  });
 });

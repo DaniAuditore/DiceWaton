@@ -67,6 +67,7 @@ function npmAuditFindings(payload) {
     status: toStatus(vuln.status),
     ruleId: `npm-audit/${pkg}`,
     file: 'package-lock.json',
+    dependencyType: vuln.dev === true || vuln.isDevDependency === true ? 'dev' : 'runtime',
     evidence: vuln.via?.map((x) => (typeof x === 'string' ? x : x.title)).filter(Boolean).join('; '),
     recommendation: vuln.fixAvailable ? 'Apply available dependency fix' : 'Update dependency manually',
   }));
