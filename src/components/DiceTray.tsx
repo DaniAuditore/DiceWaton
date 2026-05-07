@@ -1,30 +1,58 @@
 import { useState } from 'react';
+import { AlertBanner } from './ui/AlertBanner';
 
 type DiceTrayProps = {
-  onRoll: (diceType: string, result: number) => void;
+  onRoll: (diceType: string, result: number) => void | Promise<void>;
   disabled?: boolean;
+  disabledMessage?: string;
 };
 
 const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
 
-export function DiceTray({ onRoll, disabled }: DiceTrayProps) {
+export function DiceTray({ onRoll, disabled, disabledMessage }: DiceTrayProps) {
   const [localRoll, setLocalRoll] = useState<{type: string, result: number} | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<{ type: string; result: number } | null>(null);
 
-  const handleRoll = (sides: number) => {
-    const result = Math.floor(Math.random() * sides) + 1;
-    const type = `d${sides}`;
+  const sendRoll = async (type: string, result: number) => {
+    setError(null);
+    setLastAttempt({ type, result });
     setLocalRoll({ type, result });
-    onRoll(type, result);
-    
+
+    try {
+      await onRoll(type, result);
+    } catch {
+      setError('No pudimos registrar la tirada. Reintentá sin perder tu contexto.');
+    }
+
     // Clear optimistic UI after a delay
     setTimeout(() => {
       setLocalRoll(prev => prev?.type === type && prev?.result === result ? null : prev);
     }, 3000);
   };
 
+  const handleRoll = (sides: number) => {
+    const result = Math.floor(Math.random() * sides) + 1;
+    const type = `d${sides}`;
+    void sendRoll(type, result);
+  };
+
   return (
     <div className="bg-slate-900 p-4 rounded-lg">
-      <h3 className="text-lg font-semibold mb-3">Dice Tray</h3>
+      <h3 className="text-lg font-semibold mb-3">Bandeja de dados</h3>
+      {disabled && disabledMessage ? (
+        <AlertBanner tone="warning" title="No se pueden tirar dados todavía" message={disabledMessage} />
+      ) : null}
+      {error ? (
+        <div className="mb-3">
+          <AlertBanner
+            tone="error"
+            title="No pudimos registrar la tirada"
+            message={error}
+            onRetry={lastAttempt ? () => void sendRoll(lastAttempt.type, lastAttempt.result) : undefined}
+          />
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2 justify-center">
         {DICE_TYPES.map(sides => (
           <button
@@ -39,7 +67,7 @@ export function DiceTray({ onRoll, disabled }: DiceTrayProps) {
       </div>
       {localRoll && (
         <div className="mt-4 p-3 bg-slate-800 rounded text-center">
-          <span className="text-slate-400">You rolled a {localRoll.type}: </span>
+          <span className="text-slate-400">Tiraste {localRoll.type}: </span>
           <span className="text-2xl font-bold text-emerald-400 animate-pulse">{localRoll.result}</span>
         </div>
       )}

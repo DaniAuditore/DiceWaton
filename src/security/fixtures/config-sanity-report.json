@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "severity": "medium",
+      "status": "existing",
+      "ruleId": "sanity/insecure-url-fallback",
+      "file": "src/lib/supabase.ts",
+      "line": 3,
+      "evidence": "Localhost fallback",
+      "recommendation": "Validate env"
+    }
+  ]
+}

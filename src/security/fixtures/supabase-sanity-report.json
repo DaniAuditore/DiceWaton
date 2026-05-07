@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "severity": "critical",
+      "status": "new",
+      "ruleId": "sanity/supabase-rls-missing",
+      "file": "supabase/migrations/001.sql",
+      "line": 5,
+      "evidence": "Missing RLS",
+      "recommendation": "Enable RLS"
+    }
+  ]
+}
