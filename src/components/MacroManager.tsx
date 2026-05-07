@@ -139,7 +139,7 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   };
 
   return (
-    <div className="bg-slate-900 p-4 rounded-lg mt-6">
+    <div className="surface-panel surface-panel--compact">
       <h3 className="text-lg font-semibold mb-3">Mis macros</h3>
       {error ? (
         <AlertBanner

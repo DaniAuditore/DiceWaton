@@ -125,7 +125,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     expect(await screen.findByText('ABCD')).toBeTruthy();
     expect(screen.getByText('Esperando que se unan jugadores...')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Jugadores (0)' })).toBeTruthy();
-    expect(screen.getByText('Compartí este PIN: los jugadores lo ingresan en “Unirse a sala”.')).toBeTruthy();
+    expect(screen.getByText('Los jugadores lo ingresan en “Unirse a sala”.')).toBeTruthy();
   });
 
   it('copies the room PIN with accessible feedback', async () => {

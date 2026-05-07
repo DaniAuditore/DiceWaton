@@ -234,15 +234,33 @@ export function ControllerView() {
 
   return (
     <main className="app-shell">
-      <section className={`app-card text-center ${roomId ? 'app-card--wide' : ''}`}>
+      <section className="app-card app-card--wide" aria-labelledby="controller-title">
+        <header className="screen-header">
+          <div className="screen-header__copy">
+            <p className="screen-kicker">Controlador</p>
+            <h1 id="controller-title" className="screen-title">
+              {roomId ? 'Sala conectada' : 'Unirse a sala'}
+            </h1>
+            <p className="screen-lead">
+              Entrá con tu nombre y PIN o seguí la sala conectada con el estado siempre visible.
+            </p>
+          </div>
+          <Link to="/" className="screen-back-link">Volver al inicio</Link>
+        </header>
+
         {!roomId ? (
-          <>
-            <h1 className="text-3xl font-bold mb-6">Unirse a sala</h1>
-            <div className="mb-4 text-left">
-              <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
-            </div>
-            <p className="mb-4 text-sm text-slate-300">Ingresá tu nombre y el PIN. Si no iniciaste sesión, primero te vamos a pedir autenticarte.</p>
+          <div className="status-stack" role="group" aria-label="Estado del controlador">
             <ScopedStatus scope="controller-join" />
+          </div>
+        ) : null}
+
+        {!roomId ? (
+          <section className="surface-panel surface-panel--centered" aria-labelledby="controller-join-title">
+            <p className="screen-kicker">Acceso</p>
+            <h2 id="controller-join-title" className="surface-panel__title">Ingresá tu nombre y el PIN</h2>
+            <p className="surface-panel__copy">
+              Si no iniciaste sesión, primero te vamos a pedir autenticarte.
+            </p>
             {!isOnline ? (
               <AlertBanner
                 tone="warning"
@@ -250,10 +268,10 @@ export function ControllerView() {
                 message="Podés abrir DiceWaton sin conexión, pero entrar a una sala y tirar dados en vivo requiere red."
               />
             ) : null}
-             
+
             {error ? <AlertBanner tone="error" title="No pudimos unirte a la sala" message={error} /> : null}
 
-            <form onSubmit={joinRoom} className="space-y-4" noValidate>
+            <form onSubmit={joinRoom} className="panel-stack" noValidate>
               <FormField id="controller-name" label="Tu nombre" error={fieldErrors.name}>
                 <TextInput
                   id="controller-name"
@@ -304,59 +322,72 @@ export function ControllerView() {
             >
               Cerrar sesión
             </button>
-          </>
+          </section>
         ) : (
           <div className="operational-grid">
-            {showRecovery ? (
-              <AlertBanner
-                tone="info"
-                title="Sala guardada encontrada"
-                message={`Encontramos la sala ${roomPin}. Podés continuar o salir sin cerrar sesión.`}
-              />
-            ) : null}
-            {showRecovery ? (
-              <div className="control-cluster sm:justify-center md:col-span-2">
-                <Button type="button" onClick={continueStoredRoom}>Continuar en sala {roomPin}</Button>
-                <Button type="button" variant="secondary" onClick={leaveRoom}>Salir</Button>
+            <div className="operational-panel operational-panel--sticky panel-stack">
+              {showRecovery ? (
+                <AlertBanner
+                  tone="info"
+                  title="Sala guardada encontrada"
+                  message={`Encontramos la sala ${roomPin}. Podés continuar o salir sin cerrar sesión.`}
+                />
+              ) : null}
+              {showRecovery ? (
+                <div className="control-cluster sm:justify-center md:col-span-2">
+                  <Button type="button" onClick={continueStoredRoom}>Continuar en sala {roomPin}</Button>
+                  <Button type="button" variant="secondary" onClick={leaveRoom}>Salir</Button>
+                </div>
+              ) : null}
+
+              <section className="surface-panel" aria-labelledby="controller-room-title">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">Sala activa</p>
+                    <h2 id="controller-room-title" className="surface-panel__title">Conectado a la sala</h2>
+                  </div>
+                </header>
+                <div className="pin-display" aria-label={`PIN de sala ${roomPin}`}>
+                  {roomPin}
+                </div>
+                <p className="surface-panel__copy pin-copy">
+                  Guardá este PIN para volver si recargás la app.
+                </p>
+                <div className="room-controls">
+                  <Button type="button" variant="secondary" onClick={leaveRoom}>
+                    Salir de esta sala
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => supabase.auth.signOut()}>
+                    Cerrar sesión
+                  </Button>
+                </div>
+              </section>
+
+              <div className="status-stack">
+                <ScopedStatus scope="controller-realtime" />
+                <ScopedStatus scope="controller-join" />
               </div>
-            ) : null}
-            <div className="operational-panel operational-panel--sticky bg-slate-900 p-4 rounded-lg flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
-              <div>
-                <p className="text-slate-400 text-sm mb-1 text-left">Conectado a la sala</p>
-                <p className="text-2xl font-mono font-bold text-indigo-400">{roomPin}</p>
-              </div>
-              <div className="flex flex-col gap-2 text-right">
-                <button 
-                  onClick={leaveRoom} 
-                  className="text-sm text-slate-300 hover:text-white"
-                >
-                  Salir de esta sala
-                </button>
-                <button 
-                  onClick={() => supabase.auth.signOut()} 
-                  className="text-sm text-slate-400 hover:text-white"
-                >
-                  Cerrar sesión
-                </button>
-              </div>
+
+              {!isOnline ? (
+                <AlertBanner
+                  tone="warning"
+                  title="Tiradas en vivo no disponibles"
+                  message="Conectate a internet para sincronizar la sala y enviar tiradas."
+                />
+              ) : null}
             </div>
-            <div className="operational-panel space-y-4">
-            <ScopedStatus scope="controller-realtime" />
-            <ScopedStatus scope="controller-join" />
-            {!isOnline ? (
-              <AlertBanner
-                tone="warning"
-                title="Tiradas en vivo no disponibles"
-                message="Conectate a internet para sincronizar la sala y enviar tiradas."
-              />
-            ) : null}
-              
-            <div className="border-t border-slate-700 pt-6">
-                <h2 className="text-xl font-semibold mb-4">Controlador</h2>
-              <div className="bg-slate-900 p-6 rounded-lg mb-6">
-                  <p className="text-slate-400 text-sm mb-2">Contexto actual:</p>
-                <p className="text-lg font-bold text-emerald-400">{gameContext}</p>
-              </div>
+
+            <div className="operational-panel panel-stack">
+              <section className="surface-panel surface-panel--compact">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">Contexto</p>
+                    <h2 className="surface-panel__title">Estado actual</h2>
+                  </div>
+                </header>
+                <p className="surface-panel__copy">{gameContext}</p>
+              </section>
+
               <DiceTray
                 onRoll={handleRoll}
                 disabled={!realtimeReady}
@@ -364,7 +395,6 @@ export function ControllerView() {
               />
               <MacroManager onRoll={handleRoll} />
               <DiceLog logs={logs} />
-            </div>
             </div>
           </div>
         )}

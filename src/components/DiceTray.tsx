@@ -38,7 +38,7 @@ export function DiceTray({ onRoll, disabled, disabledMessage }: DiceTrayProps) {
   };
 
   return (
-    <div className="bg-slate-900 p-4 rounded-lg">
+    <div className="surface-panel surface-panel--compact">
       <h3 className="text-lg font-semibold mb-3">Bandeja de dados</h3>
       {disabled && disabledMessage ? (
         <AlertBanner tone="warning" title="No se pueden tirar dados todavía" message={disabledMessage} />

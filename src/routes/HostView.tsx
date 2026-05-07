@@ -215,13 +215,23 @@ export function HostView() {
 
   return (
     <main className="app-shell">
-      <section className={`app-card text-center ${roomId ? 'app-card--wide' : ''}`}>
-        <h1 className="text-3xl font-bold mb-6">Administrar sala</h1>
-        <div className="mb-4 text-left">
-          <Link to="/" className="text-sm text-slate-300 hover:text-white underline underline-offset-4">Volver al inicio</Link>
+      <section className="app-card app-card--wide" aria-labelledby="host-title">
+        <header className="screen-header">
+          <div className="screen-header__copy">
+            <p className="screen-kicker">Sala del host</p>
+            <h1 id="host-title" className="screen-title">Administrar sala</h1>
+            <p className="screen-lead">
+              Creá la sala, compartí el PIN y seguí la actividad en vivo con una jerarquía clara.
+            </p>
+          </div>
+          <Link to="/" className="screen-back-link">Volver al inicio</Link>
+        </header>
+
+        <div className="status-stack" role="group" aria-label="Estado de la sala">
+          <ScopedStatus scope="host-room" />
+          <ScopedStatus scope="host-realtime" />
         </div>
-        <ScopedStatus scope="host-room" />
-        <ScopedStatus scope="host-realtime" />
+
         {!isOnline ? (
           <AlertBanner
             tone="warning"
@@ -229,79 +239,109 @@ export function HostView() {
             message="DiceWaton puede quedar abierto, pero crear salas y enviar contexto requiere internet."
           />
         ) : null}
-        
+
         {error ? <AlertBanner tone="error" title="No se pudo crear la sala" message={error} onRetry={createRoom} /> : null}
 
         {!roomId ? (
-          <Button
-            onClick={createRoom}
-            loading={loading}
-            disabled={!isOnline}
-            className="w-full"
-          >
-            Crear sala
-          </Button>
+          <section className="surface-panel surface-panel--centered" aria-labelledby="host-create-room-title">
+            <p className="screen-kicker">Preparación</p>
+            <h2 id="host-create-room-title" className="surface-panel__title">Todavía no hay una sala activa</h2>
+            <p className="surface-panel__copy">
+              Creá una sala para generar el PIN y habilitar la sincronización en tiempo real.
+            </p>
+            <Button onClick={createRoom} loading={loading} disabled={!isOnline} className="w-full sm:w-auto">
+              Crear sala
+            </Button>
+          </section>
         ) : (
           <div className="operational-grid">
-            <div className="operational-panel operational-panel--sticky space-y-6">
-            <div>
-              <p className="text-slate-400 text-sm mb-1">PIN de sala</p>
-              <div className="text-5xl font-mono font-bold tracking-widest text-indigo-400 bg-slate-900 p-4 rounded-lg">
-                {roomPin}
-              </div>
-              <p className="mt-2 text-sm text-slate-300">Compartí este PIN: los jugadores lo ingresan en “Unirse a sala”.</p>
-              <div className="control-cluster mt-3 sm:justify-center">
-                <Button type="button" variant="secondary" onClick={copyRoomPin} aria-label={`Copiar PIN ${roomPin}`}>
-                  Copiar PIN
-                </Button>
-                <Button type="button" variant="secondary" onClick={shareRoomPin}>
-                  Compartir invitación
-                </Button>
-              </div>
-              <ScopedStatus scope="room-pin" className="mt-3 text-left" />
-            </div>
-            
-            <div className="border-t border-slate-700 pt-6">
-              <h2 className="text-xl font-semibold mb-4">Jugadores ({controllers.length})</h2>
-               {controllers.length === 0 ? (
-                 <div className="text-slate-400 text-sm italic">
-                    Esperando que se unan jugadores...
-                 </div>
-              ) : (
-                <ul className="space-y-2">
-                  {controllers.map((p, i) => (
-                    <li key={i} className="bg-slate-700 p-3 rounded-lg flex items-center justify-between">
-                      <span className="font-semibold">{p.name}</span>
-                       <span className="text-xs text-emerald-400">Conectado</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="operational-panel operational-panel--sticky panel-stack">
+              <section className="surface-panel" aria-labelledby="host-pin-title">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">PIN compartido</p>
+                    <h2 id="host-pin-title" className="surface-panel__title">Compartí este código</h2>
+                  </div>
+                </header>
+                <div className="pin-display" aria-label={`PIN de sala ${roomPin}`}>
+                  {roomPin}
+                </div>
+                <p className="surface-panel__copy pin-copy">
+                  Los jugadores lo ingresan en “Unirse a sala”.
+                </p>
+                <div className="control-cluster pin-actions">
+                  <Button type="button" variant="secondary" onClick={copyRoomPin} aria-label={`Copiar PIN ${roomPin}`}>
+                    Copiar PIN
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={shareRoomPin}>
+                    Compartir invitación
+                  </Button>
+                </div>
+                <ScopedStatus scope="room-pin" className="status-stack" />
+              </section>
+
+              <section className="surface-panel" aria-labelledby="host-players-title">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">Presencia</p>
+                    <h2 id="host-players-title" className="surface-panel__title">Jugadores ({controllers.length})</h2>
+                  </div>
+                </header>
+                {controllers.length === 0 ? (
+                  <p className="empty-state">Esperando que se unan jugadores...</p>
+                ) : (
+                  <ul className="room-member-list">
+                    {controllers.map((p, i) => (
+                      <li key={i} className="room-member">
+                        <span className="room-member__name">{p.name}</span>
+                        <span className="room-member__status">Conectado</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="surface-panel" aria-labelledby="host-context-title">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">Estado de la mesa</p>
+                    <h2 id="host-context-title" className="surface-panel__title">Contexto de juego</h2>
+                  </div>
+                </header>
+                <p className="surface-panel__copy">
+                  Estos cambios se envían en vivo a los controles conectados.
+                </p>
+                <div className="control-cluster">
+                  <Button type="button" variant="secondary" disabled={!isOnline} onClick={() => broadcastContext('EXPLORATION')}>
+                    Exploración
+                  </Button>
+                  <Button type="button" variant="secondary" disabled={!isOnline} onClick={() => broadcastContext('COMBAT')}>
+                    Combate
+                  </Button>
+                  <Button type="button" variant="secondary" disabled={!isOnline} onClick={() => broadcastContext('SOCIAL')}>
+                    Social
+                  </Button>
+                </div>
+                {!isOnline ? <p className="support-note">Conectate a internet para enviar contexto.</p> : null}
+                <ScopedStatus scope="host-context" className="status-stack" />
+              </section>
+
+              <section className="surface-panel surface-panel--compact">
+                <header className="surface-panel__header">
+                  <div>
+                    <p className="screen-kicker">Sesión</p>
+                    <h2 className="surface-panel__title">Controles de la sala</h2>
+                  </div>
+                </header>
+                <div className="room-controls">
+                  <Button type="button" variant="danger" onClick={closeRoom}>Cerrar sala</Button>
+                  <Link to="/" className="screen-back-link">Volver al inicio</Link>
+                </div>
+              </section>
             </div>
 
-            <div className="border-t border-slate-700 pt-6">
-               <h2 className="text-xl font-semibold mb-4">Contexto de juego</h2>
-              <p className="mb-3 text-sm text-slate-400">Estos cambios se envían en vivo a los controles conectados.</p>
-              <div className="control-cluster">
-                 <button type="button" disabled={!isOnline} onClick={() => broadcastContext('EXPLORATION')} className="bg-slate-700 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm">Exploración</button>
-                 <button type="button" disabled={!isOnline} onClick={() => broadcastContext('COMBAT')} className="bg-red-900 hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm text-red-100">Combate</button>
-                  <button type="button" disabled={!isOnline} onClick={() => broadcastContext('SOCIAL')} className="bg-blue-900 hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 px-3 py-2 rounded text-sm text-blue-100">Social</button>
-              </div>
-              {!isOnline ? <p className="mt-2 text-sm text-amber-200">Conectate a internet para enviar contexto.</p> : null}
-              <ScopedStatus scope="host-context" className="mt-3 text-left" />
-            </div>
-            </div>
-
-            <div className="operational-panel border-t border-slate-700 pt-6 md:border-t-0 md:pt-0">
-               <h2 className="text-xl font-semibold mb-4">Actividad de juego</h2>
+            <div className="operational-panel operational-panel--stack">
               <DiceLog logs={logs} />
-            </div>
-
-            <div className="operational-panel border-t border-slate-700 pt-6 control-cluster sm:justify-center md:col-span-2">
-              <Button type="button" variant="danger" onClick={closeRoom}>Cerrar sala</Button>
-              <Link to="/" className="rounded bg-slate-700 px-4 py-2 font-bold text-white transition-colors hover:bg-slate-600">
-                Volver al inicio
-              </Link>
             </div>
           </div>
         )}

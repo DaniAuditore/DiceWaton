@@ -26,13 +26,13 @@ export const DiceLog = memo(function DiceLog({ logs, error }: { logs: RollEvent[
 
   return (
     <div
-      className="bg-slate-900 p-4 rounded-lg mt-6 h-64 overflow-y-auto flex flex-col gap-2"
+      className="surface-panel surface-panel--compact h-64 overflow-y-auto flex flex-col gap-2"
       role="log"
       aria-live="polite"
       aria-relevant="additions text"
       aria-label="Registro de tiradas"
     >
-      <h3 className="text-lg font-semibold sticky top-0 bg-slate-900 pb-2 border-b border-slate-700">Últimas tiradas</h3>
+      <h3 className="surface-panel__sticky-title text-lg font-semibold pb-2">Últimas tiradas</h3>
       {error ? <div role="alert" className="text-sm text-red-300">{error}</div> : null}
       {logs.length === 0 ? (
         <div className="text-slate-500 text-sm italic text-center mt-4">
