@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { type RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useGameStore } from '../stores/useGameStore';
 import { DiceLog, type RollEvent } from '../components/DiceLog';
@@ -9,14 +10,20 @@ import { Button } from '../components/ui/Button';
 import { ScopedStatus } from '../components/ui/ScopedStatus';
 import { useUiStore } from '../stores/useUiStore';
 
+type PresencePlayer = {
+  id?: string;
+  name?: string;
+  isHost?: boolean;
+};
+
 export function HostView() {
   const { roomId, roomPin, setRoom, setIdentity, playerId, reset } = useGameStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<PresencePlayer[]>([]);
   const [logs, setLogs] = useState<RollEvent[]>([]);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const setUiStatus = useUiStore((state) => state.setStatus);
 
   useEffect(() => {
@@ -73,8 +80,8 @@ export function HostView() {
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const newPlayers: any[] = [];
+        const state = channel.presenceState() as Record<string, PresencePlayer[]>;
+        const newPlayers: PresencePlayer[] = [];
         for (const id in state) {
           newPlayers.push(...state[id]);
         }
@@ -87,10 +94,10 @@ export function HostView() {
         if (status === 'SUBSCRIBED') {
           setUiStatus('host-realtime', 'success', 'Conectado en tiempo real.');
           const { data } = await supabase.auth.getUser();
-          await channel.track({ 
-            id: data.user?.id, 
-            name: 'Host', 
-            isHost: true 
+          await channel.track({
+            id: data.user?.id,
+            name: 'Host',
+            isHost: true,
           });
         }
       });
@@ -132,9 +139,10 @@ export function HostView() {
 
       setRoom(data.id, data.pin);
       setUiStatus('host-room', 'success', 'Sala creada correctamente.');
-    } catch (err: any) {
-      setError(err.message);
-      setUiStatus('host-room', 'error', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No pudimos crear la sala.';
+      setError(message);
+      setUiStatus('host-room', 'error', message);
     } finally {
       setLoading(false);
     }
@@ -249,7 +257,7 @@ export function HostView() {
             <p className="surface-panel__copy">
               Creá una sala para generar el PIN y habilitar la sincronización en tiempo real.
             </p>
-            <Button onClick={createRoom} loading={loading} disabled={!isOnline} className="w-full sm:w-auto">
+            <Button onClick={createRoom} loading={loading} disabled={!isOnline} className="ui-button--full">
               Crear sala
             </Button>
           </section>

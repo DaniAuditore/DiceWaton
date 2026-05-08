@@ -21,6 +21,25 @@ vi.mock('../lib/supabase', () => ({
   }
 }));
 
+const mockedSupabase = vi.mocked(supabase, { deep: true });
+
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+  track: vi.fn().mockResolvedValue({}),
+  presenceState: vi.fn().mockReturnValue({}),
+  send: vi.fn(),
+};
+
+const mockRoomQuery = {
+  insert: vi.fn().mockReturnThis(),
+  select: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({
+    data: { id: 'room-1', pin: 'ABCD' },
+    error: null,
+  }),
+};
+
 describe('Supabase integration lifecycle in HostView', () => {
   const setOnlineState = (online: boolean) => {
     Object.defineProperty(window.navigator, 'onLine', {
@@ -35,19 +54,11 @@ describe('Supabase integration lifecycle in HostView', () => {
     setOnlineState(true);
     useGameStore.getState().reset();
     useUiStore.setState({ statusByScope: {}, messageByScope: {} });
-    
-    // Mock basic auth
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
-    (supabase.auth.signInAnonymously as any).mockResolvedValue({ data: { user: { id: 'anon-1' } } });
-    (supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'host-123' } } });
-    (supabase.from as any).mockReturnValue({
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: 'room-1', pin: 'ABCD' },
-        error: null,
-      }),
-    });
+
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } });
+    mockedSupabase.auth.signInAnonymously.mockResolvedValue({ data: { user: { id: 'anon-1' } } });
+    mockedSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'host-123' } } });
+    mockedSupabase.from.mockReturnValue(mockRoomQuery as unknown as ReturnType<typeof supabase.from>);
   });
 
   it('subscribes to a room channel when roomId is set', async () => {
@@ -55,13 +66,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     useGameStore.getState().setRoom('test-room-id', 'TEST');
     useGameStore.getState().setIdentity('host-123', true);
 
-    const mockChannel = {
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      track: vi.fn().mockResolvedValue({}),
-      presenceState: vi.fn().mockReturnValue({}),
-    };
-    (supabase.channel as any).mockReturnValue(mockChannel);
+    mockedSupabase.channel.mockReturnValue(mockChannel as unknown as ReturnType<typeof supabase.channel>);
 
     const { unmount } = render(
       <MemoryRouter>
@@ -98,7 +103,7 @@ describe('Supabase integration lifecycle in HostView', () => {
   });
 
   it('shows accessible retry error banner when room creation fails', async () => {
-    (supabase.auth.getUser as any).mockResolvedValue({ data: { user: null } });
+    mockedSupabase.auth.getUser.mockResolvedValue({ data: { user: null } });
 
     render(
       <MemoryRouter>
@@ -154,13 +159,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     useGameStore.getState().setIdentity('host-123', true);
     useGameStore.getState().setRoom('room-1', 'ABCD');
 
-    const mockChannel = {
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      track: vi.fn().mockResolvedValue({}),
-      presenceState: vi.fn().mockReturnValue({}),
-    };
-    (supabase.channel as any).mockReturnValue(mockChannel);
+    mockedSupabase.channel.mockReturnValue(mockChannel as unknown as ReturnType<typeof supabase.channel>);
 
     render(
       <MemoryRouter>
@@ -193,13 +192,7 @@ describe('Supabase integration lifecycle in HostView', () => {
     useGameStore.getState().setIdentity('host-123', true);
     useGameStore.getState().setRoom('room-1', 'ABCD');
 
-    const mockChannel = {
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      track: vi.fn().mockResolvedValue({}),
-      presenceState: vi.fn().mockReturnValue({}),
-    };
-    (supabase.channel as any).mockReturnValue(mockChannel);
+    mockedSupabase.channel.mockReturnValue(mockChannel as unknown as ReturnType<typeof supabase.channel>);
 
     render(
       <MemoryRouter>

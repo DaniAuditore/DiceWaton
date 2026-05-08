@@ -37,6 +37,8 @@ vi.mock('../lib/supabase', () => ({
   },
 }));
 
+const mockedSupabase = vi.mocked(supabase, { deep: true });
+
 describe('A11y quality gate', () => {
   beforeEach(() => {
     cleanup();
@@ -45,7 +47,7 @@ describe('A11y quality gate', () => {
   });
 
   it('controller join form has no critical accessibility violations', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -64,7 +66,7 @@ describe('A11y quality gate', () => {
   });
 
   it('host management entry has no critical accessibility violations', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } });
 
     const { container, getByText } = render(
       <MemoryRouter>

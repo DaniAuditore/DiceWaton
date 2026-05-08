@@ -42,6 +42,8 @@ vi.mock('../lib/supabase', () => ({
   },
 }));
 
+const mockedSupabase = vi.mocked(supabase, { deep: true });
+
 describe('ControllerView auth gating', () => {
   const setOnlineState = (online: boolean) => {
     Object.defineProperty(window.navigator, 'onLine', {
@@ -61,7 +63,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('renders auth form when user is unauthenticated', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } });
 
     render(
       <MemoryRouter>
@@ -75,7 +77,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('renders join form when user is authenticated', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -91,7 +93,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('subscribes to dice_roll and renders incoming roll details', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
     useGameStore.getState().setIdentity('controller-1', false);
@@ -127,7 +129,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('shows field-level and summary validation errors on invalid join', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -149,7 +151,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('restores a coherent connected state after remount with a valid session', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -182,7 +184,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('leaves a connected room without signing out', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
     useGameStore.getState().setIdentity('controller-1', false);
@@ -203,7 +205,7 @@ describe('ControllerView auth gating', () => {
   });
 
   it('prepares an intended PIN from the URL before joining', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -219,7 +221,7 @@ describe('ControllerView auth gating', () => {
 
   it('clearly blocks join while offline', async () => {
     setOnlineState(false);
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
 
@@ -236,7 +238,7 @@ describe('ControllerView auth gating', () => {
 
   it('shows connected controller realtime actions as network-required while offline', async () => {
     setOnlineState(false);
-    (supabase.auth.getSession as any).mockResolvedValue({
+    mockedSupabase.auth.getSession.mockResolvedValue({
       data: { session: { user: { id: 'controller-1' } } },
     });
     useGameStore.getState().setIdentity('controller-1', false);

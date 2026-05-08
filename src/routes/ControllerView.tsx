@@ -222,9 +222,13 @@ export function ControllerView() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="text-cyan-400">Cargando...</div>
-      </div>
+      <main className="auth-shell">
+        <section className="app-card auth-card" aria-live="polite">
+          <p className="screen-kicker">DiceWaton</p>
+          <h1 className="app-title app-title--compact">Cargando...</h1>
+          <p className="surface-panel__copy">Verificando tu sesión.</p>
+        </section>
+      </main>
     );
   }
 
@@ -285,7 +289,7 @@ export function ControllerView() {
                   maxLength={16}
                   invalid={Boolean(fieldErrors.name)}
                   aria-describedby={fieldErrors.name ? 'controller-name-error' : undefined}
-                  className="text-xl text-center"
+                  className="ui-input--center ui-input--compact"
                 />
                 <FieldError id="controller-name-error" message={fieldErrors.name} />
               </FormField>
@@ -302,7 +306,7 @@ export function ControllerView() {
                   maxLength={4}
                   invalid={Boolean(fieldErrors.pin)}
                   aria-describedby={fieldErrors.pin ? 'controller-pin-error' : undefined}
-                  className="text-2xl text-center font-mono uppercase tracking-widest"
+                  className="ui-input--center ui-input--compact ui-input--mono"
                 />
                 <FieldError id="controller-pin-error" message={fieldErrors.pin} />
               </FormField>
@@ -310,7 +314,7 @@ export function ControllerView() {
                 type="submit"
                 disabled={!canSubmitJoin}
                 loading={loading}
-                className="w-full"
+                className="ui-button--full"
               >
                 Unirse a la sala
               </Button>
@@ -318,7 +322,7 @@ export function ControllerView() {
             
             <button 
               onClick={() => supabase.auth.signOut()} 
-              className="mt-6 text-sm text-slate-400 hover:text-white"
+              className="auth-card__toggle"
             >
               Cerrar sesión
             </button>
@@ -334,7 +338,7 @@ export function ControllerView() {
                 />
               ) : null}
               {showRecovery ? (
-                <div className="control-cluster sm:justify-center md:col-span-2">
+                <div className="cluster cluster--center">
                   <Button type="button" onClick={continueStoredRoom}>Continuar en sala {roomPin}</Button>
                   <Button type="button" variant="secondary" onClick={leaveRoom}>Salir</Button>
                 </div>

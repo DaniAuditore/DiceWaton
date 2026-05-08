@@ -163,9 +163,11 @@ describe('security baseline integration scenarios', () => {
     expect(gate.code).toBe(1);
     expect(gate.stderr).toContain('result=fail');
 
-    const report = JSON.parse(await readFile(path.join(cwd, 'security-report.json'), 'utf8'));
-    const runtimeCritical = report.findings.find((f: any) => f.ruleId === 'npm-audit/axios');
-    const devMedium = report.findings.find((f: any) => f.ruleId === 'npm-audit/vitest');
+    const report = JSON.parse(await readFile(path.join(cwd, 'security-report.json'), 'utf8')) as {
+      findings: Array<{ ruleId: string; severity: string; dependencyType: string }>;
+    };
+    const runtimeCritical = report.findings.find((finding) => finding.ruleId === 'npm-audit/axios');
+    const devMedium = report.findings.find((finding) => finding.ruleId === 'npm-audit/vitest');
     expect(runtimeCritical?.severity).toBe('critical');
     expect(runtimeCritical?.dependencyType).toBe('runtime');
     expect(devMedium?.severity).toBe('medium');

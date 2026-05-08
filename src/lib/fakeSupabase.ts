@@ -1,14 +1,14 @@
 type AuthUser = { id: string; email?: string; is_anonymous?: boolean };
 type AuthSession = { user: AuthUser };
 
-type Room = { id: string; pin: string; host_id: string };
-type Macro = {
-  id: string;
-  user_id: string;
-  name: string;
-  dice_expression: string;
-  created_at: string;
-};
+type StoredRow = Record<string, unknown>;
+type PresenceRow = StoredRow & { id?: string };
+type BroadcastMessage = { type: 'broadcast'; event: string; payload: unknown };
+type PresenceTrackMessage = { type: 'presence-track'; key: string; payload: PresenceRow };
+type ChannelMessage = BroadcastMessage | PresenceTrackMessage;
+type ChannelCallback = (payload?: { payload: unknown }) => void;
+type ChannelHandler = { type: 'presence' | 'broadcast'; event: string; cb: ChannelCallback };
+type QueryResult = { data: StoredRow | StoredRow[] | null; error: { code?: string; message: string } | null };
 
 const USERS_KEY = 'dw:e2e:users';
 const ROOMS_KEY = 'dw:e2e:rooms';
@@ -49,15 +49,18 @@ const setSession = (session: AuthSession | null) => {
 class FakeChannel {
   private bc: BroadcastChannel;
   private channelName: string;
-  private handlers: Array<{ type: string; event?: string; cb: (payload?: any) => void }> = [];
-  private presence: Record<string, any[]> = {};
+  private handlers: ChannelHandler[] = [];
+  private presence: Record<string, PresenceRow[]> = {};
   private presenceKey?: string;
+  private closed = false;
 
   constructor(name: string, presenceKey?: string) {
     this.channelName = name;
     this.presenceKey = presenceKey;
     this.bc = new BroadcastChannel(`dw:e2e:${this.channelName}`);
-    this.bc.onmessage = (event) => {
+    this.bc.onmessage = (event: MessageEvent<ChannelMessage>) => {
+      if (this.closed) return;
+
       const message = event.data;
 
       if (message.type === 'broadcast') {
@@ -75,7 +78,7 @@ class FakeChannel {
     };
   }
 
-  on(type: 'presence' | 'broadcast', filter: { event: string }, cb: (payload?: any) => void) {
+  on(type: 'presence' | 'broadcast', filter: { event: string }, cb: ChannelCallback) {
     this.handlers.push({ type, event: filter.event, cb });
     return this;
   }
@@ -85,21 +88,37 @@ class FakeChannel {
     return this;
   }
 
-  async track(payload: any) {
+  async track(payload: PresenceRow) {
+    if (this.closed) return;
+
     const key = this.presenceKey || payload.id || crypto.randomUUID();
     this.presence[key] = [payload];
-    this.bc.postMessage({ type: 'presence-track', key, payload });
+
+    try {
+      this.bc.postMessage({ type: 'presence-track', key, payload });
+    } catch {
+      // Ignore late messages after cleanup in fake mode.
+    }
   }
 
   presenceState() {
     return this.presence;
   }
 
-  send(args: { type: 'broadcast'; event: string; payload: any }) {
-    this.bc.postMessage({ type: 'broadcast', event: args.event, payload: args.payload });
+  send(args: BroadcastMessage) {
+    if (this.closed) return;
+
+    try {
+      this.bc.postMessage({ type: 'broadcast', event: args.event, payload: args.payload });
+    } catch {
+      // Ignore late messages after cleanup in fake mode.
+    }
   }
 
   close() {
+    if (this.closed) return;
+
+    this.closed = true;
     this.bc.close();
   }
 }
@@ -107,8 +126,8 @@ class FakeChannel {
 class QueryBuilder {
   private eqField?: string;
   private eqValue?: string;
-  private insertPayload: any[] = [];
-  private updatePayload: any = null;
+  private insertPayload: StoredRow[] = [];
+  private updatePayload: StoredRow | null = null;
   private deleteMode = false;
   private table: 'active_rooms' | 'macros';
 
@@ -116,12 +135,12 @@ class QueryBuilder {
     this.table = table;
   }
 
-  insert(payload: any | any[]) {
+  insert(payload: StoredRow | StoredRow[]) {
     this.insertPayload = Array.isArray(payload) ? payload : [payload];
     return this;
   }
 
-  update(payload: any) {
+  update(payload: StoredRow) {
     this.updatePayload = payload;
     return this;
   }
@@ -142,7 +161,7 @@ class QueryBuilder {
   }
 
   async order(field: string, opts: { ascending: boolean }) {
-    const rows = this.readRows().slice().sort((a: any, b: any) => {
+    const rows = this.readRows().slice().sort((a, b) => {
       const av = a[field] ?? '';
       const bv = b[field] ?? '';
       return opts.ascending ? `${av}`.localeCompare(`${bv}`) : `${bv}`.localeCompare(`${av}`);
@@ -168,11 +187,11 @@ class QueryBuilder {
     return { data: rows[0], error: null };
   }
 
-  then(resolve: (value: any) => void, reject?: (reason?: any) => void) {
+  then(resolve: (value: QueryResult) => void, reject?: (reason?: unknown) => void) {
     this.exec().then(resolve).catch(reject);
   }
 
-  private async exec() {
+  private async exec(): Promise<QueryResult> {
     if (this.insertPayload.length > 0) {
       return { data: this.insertRows(), error: null };
     }
@@ -189,17 +208,17 @@ class QueryBuilder {
     return { data: this.filterRows(this.readRows()), error: null };
   }
 
-  private filterRows(rows: any[]) {
+  private filterRows(rows: StoredRow[]) {
     if (!this.eqField) return rows;
     return rows.filter((row) => row[this.eqField!] === this.eqValue);
   }
 
   private readRows() {
-    if (this.table === 'active_rooms') return readJson<Room[]>(ROOMS_KEY, []);
-    return readJson<Macro[]>(MACROS_KEY, []);
+    if (this.table === 'active_rooms') return readJson<StoredRow[]>(ROOMS_KEY, []);
+    return readJson<StoredRow[]>(MACROS_KEY, []);
   }
 
-  private writeRows(rows: any[]) {
+  private writeRows(rows: StoredRow[]) {
     if (this.table === 'active_rooms') {
       writeJson(ROOMS_KEY, rows);
       return;
@@ -222,7 +241,7 @@ class QueryBuilder {
 
   private updateRows() {
     const current = this.readRows();
-    const updated = current.map((row: any) => {
+    const updated = current.map((row) => {
       if (this.eqField && row[this.eqField] === this.eqValue) {
         return { ...row, ...this.updatePayload };
       }
@@ -235,7 +254,7 @@ class QueryBuilder {
   private deleteRows() {
     const current = this.readRows();
     const remaining = this.eqField
-      ? current.filter((row: any) => row[this.eqField!] !== this.eqValue)
+      ? current.filter((row) => row[this.eqField!] !== this.eqValue)
       : [];
     this.writeRows(remaining);
   }

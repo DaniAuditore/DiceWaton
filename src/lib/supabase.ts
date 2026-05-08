@@ -13,5 +13,5 @@ if (!shouldUseFakeSupabase && (!supabaseUrl || !supabaseAnonKey)) {
 }
 
 export const supabase = shouldUseFakeSupabase
-  ? (fakeSupabase as any)
+  ? (fakeSupabase as unknown as ReturnType<typeof createClient>)
   : createClient(supabaseUrl as string, supabaseAnonKey as string);
