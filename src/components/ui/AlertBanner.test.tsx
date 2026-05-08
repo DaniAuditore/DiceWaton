@@ -8,4 +8,10 @@ describe('AlertBanner', () => {
     render(<AlertBanner tone="error" message="falló" />);
     expect(screen.getByRole('alert')).toBeTruthy();
   });
+
+  it('renders dismiss control when provided', () => {
+    render(<AlertBanner tone="info" message="hola" onDismiss={() => undefined} />);
+
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeTruthy();
+  });
 });

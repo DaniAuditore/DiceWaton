@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { AlertBanner } from './ui/AlertBanner';
 import { Button } from './ui/Button';
@@ -40,6 +40,7 @@ export function AuthForm({ intendedPin }: AuthFormProps) {
       requestAnimationFrame(() => summaryRef.current?.focus());
       return;
     }
+
     setLoading(true);
     setError(null);
     clearUiStatus('auth');
@@ -55,9 +56,10 @@ export function AuthForm({ intendedPin }: AuthFormProps) {
         if (error) throw error;
         setUiStatus('auth', 'success', 'Ingreso exitoso.');
       }
-    } catch (err: any) {
-      setError(err.message);
-      setUiStatus('auth', 'error', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No pudimos completar la autenticación.';
+      setError(message);
+      setUiStatus('auth', 'error', message);
       requestAnimationFrame(() => summaryRef.current?.focus());
     } finally {
       setLoading(false);
@@ -69,32 +71,33 @@ export function AuthForm({ intendedPin }: AuthFormProps) {
   }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 p-4 font-mono text-cyan-50">
-      <div className="w-full max-w-md rounded-xl border border-cyan-900/50 bg-gray-900/80 p-8 shadow-2xl backdrop-blur-sm">
-        <div className="mb-8 flex flex-col items-center justify-center">
-          <div className="mb-4 rounded-full bg-cyan-950 p-4 shadow-[0_0_15px_rgba(6,182,212,0.3)] border border-cyan-800/50">
-            <span className="text-3xl" aria-hidden="true">🎲</span>
+    <div className="auth-shell">
+      <section className="app-card auth-card" aria-labelledby="auth-title">
+        <header className="auth-brand">
+          <div className="auth-brand__mark" aria-hidden="true">
+            🎲
           </div>
-          <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+          <p className="screen-kicker">Acceso seguro</p>
+          <h1 id="auth-title" className="app-title app-title--compact">
             DiceWaton
-          </h2>
-            <p className="mt-2 text-sm text-cyan-400/60">
-              {isSignUp ? 'Creá una cuenta nueva' : 'Ingresá para unirte a una sala'}
-            </p>
-            <p className="mt-2 text-center text-xs text-cyan-100/70">
-              {intendedPin
-                ? `Después de ingresar vas a poder unirte con el PIN ${intendedPin}.`
-                : 'Unirse a una sala puede requerir iniciar sesión primero.'}
-            </p>
-        </div>
+          </h1>
+          <p className="app-lead app-lead--compact">
+            {isSignUp ? 'Creá una cuenta nueva' : 'Ingresá para unirte a una sala'}
+          </p>
+          <p className="surface-panel__copy">
+            {intendedPin
+              ? `Después de ingresar vas a poder unirte con el PIN ${intendedPin}.`
+              : 'Unirse a una sala puede requerir iniciar sesión primero.'}
+          </p>
+        </header>
 
-        {error && (
+        {error ? (
           <div ref={summaryRef} tabIndex={-1}>
             <AlertBanner tone="error" title="No pudimos completar la autenticación" message={error} />
           </div>
-        )}
+        ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+        <form onSubmit={handleSubmit} className="form-stack" noValidate>
           <FormField id="auth-email" label="Correo electrónico" error={fieldErrors.email}>
             <TextInput
               ref={emailRef}
@@ -128,34 +131,26 @@ export function AuthForm({ intendedPin }: AuthFormProps) {
             <FieldError id="auth-password-error" message={fieldErrors.password} />
           </FormField>
 
-          <Button
-            type="submit"
-            loading={loading}
-            className="w-full justify-center bg-cyan-400 text-gray-950 hover:bg-cyan-300"
-          >
+          <Button type="submit" loading={loading} className="ui-button--full">
             {isSignUp ? 'Crear cuenta' : 'Ingresar'}
           </Button>
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="auth-card__footer">
           <button
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError(null);
             }}
-            className="text-sm text-cyan-500 hover:text-cyan-300 transition-colors"
+            className="auth-card__toggle"
           >
-            {isSignUp
-              ? '¿Ya tenés cuenta? Ingresá'
-              : '¿No tenés cuenta? Creala'}
+            {isSignUp ? '¿Ya tenés cuenta? Ingresá' : '¿No tenés cuenta? Creala'}
           </button>
-          <div className="mt-4">
-            <Link to="/" className="text-sm text-cyan-500 hover:text-cyan-300 transition-colors">
-              Volver al inicio
-            </Link>
-          </div>
+          <Link to="/" className="auth-card__link">
+            Volver al inicio
+          </Link>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

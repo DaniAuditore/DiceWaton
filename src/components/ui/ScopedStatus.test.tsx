@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { useUiStore } from '../../stores/useUiStore';
 import { ScopedStatus } from './ScopedStatus';
 
 describe('ScopedStatus', () => {
   beforeEach(() => {
+    cleanup();
     useUiStore.setState({ statusByScope: {}, messageByScope: {} });
   });
 
@@ -24,5 +25,19 @@ describe('ScopedStatus', () => {
     render(<ScopedStatus scope="controller-join" />);
 
     expect(screen.getByRole('alert').textContent).toContain('Necesitás iniciar sesión');
+  });
+
+  it('auto-clears temporary success feedback', () => {
+    vi.useFakeTimers();
+    useUiStore.getState().setStatus('room-pin', 'success', 'PIN copiado');
+
+    render(<ScopedStatus scope="room-pin" />);
+
+    expect(screen.getAllByRole('status')[0].textContent).toContain('PIN copiado');
+
+    vi.advanceTimersByTime(3000);
+
+    expect(useUiStore.getState().getScopedStatus('room-pin')).toBeNull();
+    vi.useRealTimers();
   });
 });

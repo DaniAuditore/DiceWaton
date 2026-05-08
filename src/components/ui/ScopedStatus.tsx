@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AlertBanner } from './AlertBanner';
 import { type UiStatus, useUiStore } from '../../stores/useUiStore';
 
@@ -21,9 +22,32 @@ const statusTitle: Record<Exclude<UiStatus, 'idle'>, string> = {
   offline: 'Conexión requerida',
 };
 
+const autoHideDurations: Partial<Record<UiStatus, number>> = {
+  success: 2800,
+  empty: 3200,
+};
+
 export function ScopedStatus({ scope, className = '' }: ScopedStatusProps) {
   const status = useUiStore((state) => state.statusByScope[scope]);
   const message = useUiStore((state) => state.messageByScope[scope]);
+  const clearStatus = useUiStore((state) => state.clearStatus);
+
+  useEffect(() => {
+    if (!status || status === 'idle') {
+      return;
+    }
+
+    const autoHideDelay = autoHideDurations[status];
+    if (!autoHideDelay) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      clearStatus(scope);
+    }, autoHideDelay);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [clearStatus, scope, status]);
 
   if (!status || status === 'idle') {
     return null;
@@ -37,6 +61,7 @@ export function ScopedStatus({ scope, className = '' }: ScopedStatusProps) {
         tone={tone}
         title={statusTitle[status]}
         message={message || statusTitle[status]}
+        onDismiss={status === 'loading' ? undefined : () => clearStatus(scope)}
       />
     </div>
   );

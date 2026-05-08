@@ -7,12 +7,6 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
 };
 
-const variantClass: Record<ButtonVariant, string> = {
-  primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-  secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
-  danger: 'bg-red-800 hover:bg-red-700 text-white',
-};
-
 export function Button({ loading = false, variant = 'primary', disabled, className = '', children, ...props }: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
@@ -20,7 +14,7 @@ export function Button({ loading = false, variant = 'primary', disabled, classNa
       {...props}
       disabled={isDisabled}
       aria-busy={loading ? 'true' : 'false'}
-      className={`rounded px-4 py-2 font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variantClass[variant]} ${className}`.trim()}
+      className={`ui-button ui-button--${variant} ${className}`.trim()}
     >
       {loading ? 'Procesando...' : children}
     </button>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertBanner } from './ui/AlertBanner';
+import { Button } from './ui/Button';
 
 type DiceTrayProps = {
   onRoll: (diceType: string, result: number) => void | Promise<void>;
@@ -9,10 +10,53 @@ type DiceTrayProps = {
 
 const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
 
+const rollDie = (sides: number) => {
+  const roll = crypto.getRandomValues(new Uint32Array(1))[0];
+  return (roll % sides) + 1;
+};
+
 export function DiceTray({ onRoll, disabled, disabledMessage }: DiceTrayProps) {
-  const [localRoll, setLocalRoll] = useState<{type: string, result: number} | null>(null);
+  const [localRoll, setLocalRoll] = useState<{ type: string; result: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<{ type: string; result: number } | null>(null);
+  const rollTimerRef = useRef<number | null>(null);
+  const errorTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rollTimerRef.current !== null) {
+        window.clearTimeout(rollTimerRef.current);
+      }
+      if (errorTimerRef.current !== null) {
+        window.clearTimeout(errorTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      if (errorTimerRef.current !== null) {
+        window.clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (errorTimerRef.current !== null) {
+      window.clearTimeout(errorTimerRef.current);
+    }
+
+    errorTimerRef.current = window.setTimeout(() => {
+      setError(null);
+      errorTimerRef.current = null;
+    }, 5000);
+
+    return () => {
+      if (errorTimerRef.current !== null) {
+        window.clearTimeout(errorTimerRef.current);
+      }
+    };
+  }, [error]);
 
   const sendRoll = async (type: string, result: number) => {
     setError(null);
@@ -25,52 +69,65 @@ export function DiceTray({ onRoll, disabled, disabledMessage }: DiceTrayProps) {
       setError('No pudimos registrar la tirada. Reintentá sin perder tu contexto.');
     }
 
-    // Clear optimistic UI after a delay
-    setTimeout(() => {
-      setLocalRoll(prev => prev?.type === type && prev?.result === result ? null : prev);
+    if (rollTimerRef.current !== null) {
+      window.clearTimeout(rollTimerRef.current);
+    }
+
+    rollTimerRef.current = window.setTimeout(() => {
+      setLocalRoll((prev) => (prev?.type === type && prev?.result === result ? null : prev));
     }, 3000);
   };
 
   const handleRoll = (sides: number) => {
-    const result = Math.floor(Math.random() * sides) + 1;
+    const result = rollDie(sides);
     const type = `d${sides}`;
     void sendRoll(type, result);
   };
 
   return (
-    <div className="surface-panel surface-panel--compact">
-      <h3 className="text-lg font-semibold mb-3">Bandeja de dados</h3>
-      {disabled && disabledMessage ? (
-        <AlertBanner tone="warning" title="No se pueden tirar dados todavía" message={disabledMessage} />
-      ) : null}
-      {error ? (
-        <div className="mb-3">
-          <AlertBanner
-            tone="error"
-            title="No pudimos registrar la tirada"
-            message={error}
-            onRetry={lastAttempt ? () => void sendRoll(lastAttempt.type, lastAttempt.result) : undefined}
-          />
+    <section className="surface-panel surface-panel--compact panel-stack" aria-labelledby="dice-tray-title">
+      <header className="surface-panel__header">
+        <div>
+          <p className="screen-kicker">Tiradas</p>
+          <h3 id="dice-tray-title" className="surface-panel__title">
+            Bandeja de dados
+          </h3>
         </div>
+      </header>
+
+      {disabled && disabledMessage ? <AlertBanner tone="warning" title="No se pueden tirar dados todavía" message={disabledMessage} /> : null}
+
+      {error ? (
+        <AlertBanner
+          tone="error"
+          title="No pudimos registrar la tirada"
+          message={error}
+          onRetry={lastAttempt ? () => void sendRoll(lastAttempt.type, lastAttempt.result) : undefined}
+          onDismiss={() => setError(null)}
+        />
       ) : null}
-      <div className="flex flex-wrap gap-2 justify-center">
-        {DICE_TYPES.map(sides => (
-          <button
+
+      <div className="dice-tray-grid" role="group" aria-label="Dados disponibles">
+        {DICE_TYPES.map((sides) => (
+          <Button
             key={sides}
-            onClick={() => handleRoll(sides)}
+            type="button"
+            variant="secondary"
             disabled={disabled}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-2 px-4 rounded transition-colors"
+            onClick={() => handleRoll(sides)}
+            className="ui-button--small"
           >
             d{sides}
-          </button>
+          </Button>
         ))}
       </div>
-      {localRoll && (
-        <div className="mt-4 p-3 bg-slate-800 rounded text-center">
-          <span className="text-slate-400">Tiraste {localRoll.type}: </span>
-          <span className="text-2xl font-bold text-emerald-400 animate-pulse">{localRoll.result}</span>
+
+      {localRoll ? (
+        <div className="dice-tray-result" aria-live="polite">
+          <span className="dice-tray-result__label">Tiraste {localRoll.type}:</span>
+          <span className="dice-tray-result__value">{localRoll.result}</span>
         </div>
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }

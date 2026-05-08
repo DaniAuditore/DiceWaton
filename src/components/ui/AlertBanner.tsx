@@ -5,32 +5,48 @@ type AlertBannerProps = {
   title?: string;
   message: string;
   onRetry?: () => void;
+  onDismiss?: () => void;
+  dismissLabel?: string;
 };
 
 const toneClasses: Record<AlertBannerTone, string> = {
-  error: 'bg-red-950/50 border-red-900/50 text-red-300',
-  warning: 'bg-amber-950/40 border-amber-800/50 text-amber-200',
-  info: 'bg-sky-950/40 border-sky-900/50 text-sky-200',
-  success: 'bg-emerald-950/40 border-emerald-900/50 text-emerald-200',
+  error: 'alert-banner--error',
+  warning: 'alert-banner--warning',
+  info: 'alert-banner--info',
+  success: 'alert-banner--success',
 };
 
-export function AlertBanner({ tone = 'info', title, message, onRetry }: AlertBannerProps) {
+export function AlertBanner({ tone = 'info', title, message, onRetry, onDismiss, dismissLabel = 'Cerrar' }: AlertBannerProps) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`mb-4 rounded-md border p-4 text-sm ${toneClasses[tone]}`}
+      className={`alert-banner ${toneClasses[tone]}`}
     >
-      {title ? <p className="font-semibold">{title}</p> : null}
-      <p>{message}</p>
-      {onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-2 rounded border border-current px-2 py-1 text-xs font-semibold"
-        >
-          Reintentar
-        </button>
-      ) : null}
+      <div className="alert-banner__copy">
+        {title ? <p className="alert-banner__title">{title}</p> : null}
+        <p className="alert-banner__message">{message}</p>
+      </div>
+
+      <div className="alert-banner__actions">
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="ui-button ui-button--secondary ui-button--small alert-banner__retry"
+          >
+            Reintentar
+          </button>
+        ) : null}
+        {onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="ui-button ui-button--secondary ui-button--small alert-banner__dismiss"
+          >
+            {dismissLabel}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

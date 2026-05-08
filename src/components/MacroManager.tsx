@@ -5,6 +5,7 @@ import { AlertBanner } from './ui/AlertBanner';
 import { Button } from './ui/Button';
 import { TextInput } from './ui/TextInput';
 import { useUiStore } from '../stores/useUiStore';
+import { FormField } from './ui/FormField';
 
 type MacroManagerProps = {
   onRoll: (diceType: string, result: number, details?: string) => void | Promise<void>;
@@ -26,10 +27,36 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   const setUiStatus = useUiStore((state) => state.setStatus);
   const addExpressionRef = useRef<HTMLInputElement>(null);
   const editExpressionRef = useRef<HTMLInputElement>(null);
+  const macroErrorTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetchMacros();
   }, [fetchMacros]);
+
+  useEffect(() => {
+    if (!macroRollError) {
+      if (macroErrorTimerRef.current !== null) {
+        window.clearTimeout(macroErrorTimerRef.current);
+        macroErrorTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (macroErrorTimerRef.current !== null) {
+      window.clearTimeout(macroErrorTimerRef.current);
+    }
+
+    macroErrorTimerRef.current = window.setTimeout(() => {
+      setMacroRollError(null);
+      macroErrorTimerRef.current = null;
+    }, 5000);
+
+    return () => {
+      if (macroErrorTimerRef.current !== null) {
+        window.clearTimeout(macroErrorTimerRef.current);
+      }
+    };
+  }, [macroRollError]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,29 +88,32 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
     }
   };
 
-  const handleRollMacro = useCallback(async (macroName: string, expr: string) => {
-    setError(null);
-    setMacroRollError(null);
-    setLastFailedRoll({ macroName, expr });
+  const handleRollMacro = useCallback(
+    async (macroName: string, expr: string) => {
+      setError(null);
+      setMacroRollError(null);
+      setLastFailedRoll({ macroName, expr });
 
-    const validation = validateDiceExpression(expr);
-    if (!validation.ok) {
-      const message = `No se tiró "${macroName}": ${validation.message}`;
-      setMacroRollError({ id: `${macroName}-${expr}`, message });
-      setUiStatus('macro-roll', 'error', message);
-      return;
-    }
+      const validation = validateDiceExpression(expr);
+      if (!validation.ok) {
+        const message = `No se tiró "${macroName}": ${validation.message}`;
+        setMacroRollError({ id: `${macroName}-${expr}`, message });
+        setUiStatus('macro-roll', 'error', message);
+        return;
+      }
 
-    try {
-      const roll = parseAndRollDetailed(validation.normalizedExpression);
-      await onRoll(`${macroName} (${validation.normalizedExpression})`, roll.total, formatRollBreakdown(roll));
-      setUiStatus('macro-roll', 'success', `Macro "${macroName}" ejecutada.`);
-    } catch {
-      const message = 'No pudimos ejecutar el macro. Reintentá sin perder el contexto actual.';
-      setError(message);
-      setUiStatus('macro-roll', 'error', message);
-    }
-  }, [onRoll, setUiStatus]);
+      try {
+        const roll = parseAndRollDetailed(validation.normalizedExpression);
+        await onRoll(`${macroName} (${validation.normalizedExpression})`, roll.total, formatRollBreakdown(roll));
+        setUiStatus('macro-roll', 'success', `Macro "${macroName}" ejecutada.`);
+      } catch {
+        const message = 'No pudimos ejecutar el macro. Reintentá sin perder el contexto actual.';
+        setError(message);
+        setUiStatus('macro-roll', 'error', message);
+      }
+    },
+    [onRoll, setUiStatus],
+  );
 
   const beginEdit = (id: string, currentName: string, currentExpression: string) => {
     setEditingId(id);
@@ -139,29 +169,38 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
   };
 
   return (
-    <div className="surface-panel surface-panel--compact">
-      <h3 className="text-lg font-semibold mb-3">Mis macros</h3>
+    <section className="surface-panel surface-panel--compact panel-stack" aria-labelledby="macro-manager-title">
+      <header className="surface-panel__header">
+        <div>
+          <p className="screen-kicker">Macros</p>
+          <h3 id="macro-manager-title" className="surface-panel__title">
+            Mis macros
+          </h3>
+        </div>
+      </header>
+
       {error ? (
         <AlertBanner
           tone="error"
           title="Error de macros"
           message={error}
           onRetry={lastFailedRoll ? () => void handleRollMacro(lastFailedRoll.macroName, lastFailedRoll.expr) : undefined}
+          onDismiss={() => setError(null)}
         />
       ) : null}
-      
-      <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
+
+      <div className="macro-list">
         {macros.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">Todavía no tenés macros guardadas.</p>
+          <p className="log-entry__empty">Todavía no tenés macros guardadas.</p>
         ) : (
           macros.map((macro) => (
-            <div key={macro.id} className="flex items-center justify-between bg-slate-800 p-2 rounded border border-slate-700">
+            <article key={macro.id} className="macro-item">
               {editingId === macro.id ? (
-                <div className="flex-1 grid grid-cols-2 gap-2 mr-2">
+                <div className="macro-form__fields">
                   <TextInput
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
-                    className="px-2 py-1 text-sm"
+                    className="ui-input--compact"
                     maxLength={20}
                     aria-label="Nombre del macro"
                   />
@@ -173,114 +212,108 @@ export function MacroManager({ onRoll }: MacroManagerProps) {
                         setEditingExpression(e.target.value);
                         setEditExpressionError(null);
                       }}
-                      className="px-2 py-1 text-sm font-mono"
+                      className="ui-input--compact ui-input--mono"
                       maxLength={20}
                       invalid={Boolean(editExpressionError)}
                       aria-label="Expresión del macro"
                       aria-describedby={editExpressionError ? `macro-edit-error-${macro.id}` : 'macro-expression-help'}
                     />
                     {editExpressionError ? (
-                      <p id={`macro-edit-error-${macro.id}`} role="alert" className="mt-1 text-xs text-red-300">
+                      <p id={`macro-edit-error-${macro.id}`} role="alert" className="field-stack__hint" style={{ color: 'rgb(252 165 165)' }}>
                         {editExpressionError}
                       </p>
                     ) : null}
                   </div>
                 </div>
               ) : (
-                <div>
-                  <div className="font-bold text-slate-200">{macro.name}</div>
-                  <div className="text-xs text-slate-400 font-mono">{macro.dice_expression}</div>
+                <div className="macro-item__shell">
+                  <p className="macro-item__title">{macro.name}</p>
+                  <p className="macro-item__expression">{macro.dice_expression}</p>
                   {macroRollError?.id === `${macro.name}-${macro.dice_expression}` ? (
-                    <p role="alert" className="mt-1 text-xs text-red-300">
+                    <div role="alert" className="field-stack__hint" style={{ color: 'rgb(252 165 165)' }}>
                       {macroRollError.message}
-                    </p>
+                    </div>
                   ) : null}
                 </div>
               )}
-              <div className="flex gap-2">
+
+              <div className="macro-item__actions">
                 {editingId === macro.id ? (
                   <>
-                    <Button
-                      onClick={saveEdit}
-                      className="text-sm py-1 px-2"
-                    >
+                    <Button onClick={saveEdit} className="ui-button--small">
                       Guardar
                     </Button>
-                    <Button
-                      onClick={cancelEdit}
-                      variant="secondary"
-                      className="text-sm py-1 px-2"
-                    >
+                    <Button onClick={cancelEdit} variant="secondary" className="ui-button--small">
                       Cancelar
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button
-                      onClick={() => void handleRollMacro(macro.name, macro.dice_expression)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-sm py-1 px-3"
-                    >
+                    <Button onClick={() => void handleRollMacro(macro.name, macro.dice_expression)} className="ui-button--small">
                       Tirar
                     </Button>
-                    <Button
-                      onClick={() => beginEdit(macro.id, macro.name, macro.dice_expression)}
-                      className="bg-amber-700 hover:bg-amber-600 text-sm py-1 px-2"
-                    >
+                    <Button onClick={() => beginEdit(macro.id, macro.name, macro.dice_expression)} variant="secondary" className="ui-button--small">
                       Editar
                     </Button>
                   </>
                 )}
-                <Button onClick={() => handleDelete(macro.id)} variant="danger" className="text-sm py-1 px-2" aria-label="Eliminar macro" title="Eliminar macro">✕</Button>
+                <Button onClick={() => handleDelete(macro.id)} variant="danger" className="ui-button--small" aria-label="Eliminar macro">
+                  Eliminar
+                </Button>
               </div>
-            </div>
+            </article>
           ))
         )}
       </div>
 
-      <form onSubmit={handleAdd} className="flex gap-2 border-t border-slate-700 pt-4">
-        <TextInput
-          type="text"
-          placeholder="Nombre (ej: Bola de fuego)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={20}
-          className="flex-1 bg-slate-800 px-3 py-2 text-sm"
-          aria-label="Nombre del nuevo macro"
-        />
-        <div className="w-36">
-          <TextInput
-            ref={addExpressionRef}
-            type="text"
-            placeholder="Expresión (ej: 8d6)"
-            value={expression}
-            onChange={(e) => {
-              setExpression(e.target.value);
-              setAddExpressionError(null);
-            }}
-            maxLength={20}
-            invalid={Boolean(addExpressionError)}
-            className="bg-slate-800 px-3 py-2 text-sm font-mono"
-            aria-label="Expresión del nuevo macro"
-            aria-describedby={addExpressionError ? 'macro-expression-error' : 'macro-expression-help'}
-          />
-          {addExpressionError ? (
-            <p id="macro-expression-error" role="alert" className="mt-1 text-xs text-red-300">
-              {addExpressionError}
-            </p>
-          ) : null}
+      <form onSubmit={handleAdd} className="macro-form" noValidate>
+        <div className="macro-form__fields">
+          <FormField id="macro-name" label="Nombre del macro">
+            <TextInput
+              id="macro-name"
+              type="text"
+              placeholder="Nombre (ej: Bola de fuego)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={20}
+              className="ui-input--compact"
+              aria-label="Nombre del nuevo macro"
+            />
+          </FormField>
+
+          <FormField id="macro-expression" label="Expresión" error={addExpressionError ?? undefined}>
+            <TextInput
+              ref={addExpressionRef}
+              id="macro-expression"
+              type="text"
+              placeholder="Expresión (ej: 8d6)"
+              value={expression}
+              onChange={(e) => {
+                setExpression(e.target.value);
+                setAddExpressionError(null);
+              }}
+              maxLength={20}
+              invalid={Boolean(addExpressionError)}
+              className="ui-input--compact ui-input--mono"
+              aria-label="Expresión del nuevo macro"
+              aria-describedby={addExpressionError ? 'macro-expression-error' : 'macro-expression-help'}
+            />
+            {addExpressionError ? (
+              <p id="macro-expression-error" role="alert" className="field-stack__hint" style={{ color: 'rgb(252 165 165)' }}>
+                {addExpressionError}
+              </p>
+            ) : null}
+          </FormField>
         </div>
-        <Button
-          type="submit"
-          disabled={loading || !name.trim()}
-          loading={loading}
-          className="py-2 px-3"
-        >
+
+        <Button type="submit" disabled={loading || !name.trim()} loading={loading} className="macro-form__submit ui-button--small">
           Agregar
         </Button>
       </form>
-      <p id="macro-expression-help" className="mt-2 text-xs text-slate-400">
+
+      <p id="macro-expression-help" className="field-stack__hint">
         Sintaxis aceptada: 1d20+5, d6, 8d6 o modificadores como 2d6-1.
       </p>
-    </div>
+    </section>
   );
 }

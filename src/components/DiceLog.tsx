@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+
 export type RollEvent = {
   id: string;
   playerName: string;
@@ -12,33 +13,32 @@ export const DiceLog = memo(function DiceLog({ logs, error }: { logs: RollEvent[
   const renderedLogs = useMemo(
     () =>
       logs.map((log) => (
-        <div key={log.id} className="bg-slate-800 p-3 rounded flex justify-between items-center animate-fade-in-down">
-          <div>
-            <span className="font-bold text-indigo-400">{log.playerName}</span>
-            <span className="text-slate-400 text-sm ml-2">tiró {log.diceType}</span>
-            {log.details ? <div className="text-xs text-slate-500 font-mono mt-1">{log.details}</div> : null}
+        <article key={log.id} className="log-entry">
+          <div className="log-entry__meta">
+            <div>
+              <span className="log-entry__player">{log.playerName}</span>
+              <span className="log-entry__dice"> tiró {log.diceType}</span>
+            </div>
+            {log.details ? <div className="log-entry__details">{log.details}</div> : null}
           </div>
-          <div className="text-2xl font-bold text-emerald-400">{log.result}</div>
-        </div>
+          <div className="log-entry__result">{log.result}</div>
+        </article>
       )),
     [logs],
   );
 
   return (
-    <div
-      className="surface-panel surface-panel--compact h-64 overflow-y-auto flex flex-col gap-2"
-      role="log"
-      aria-live="polite"
-      aria-relevant="additions text"
-      aria-label="Registro de tiradas"
-    >
-      <h3 className="surface-panel__sticky-title text-lg font-semibold pb-2">Últimas tiradas</h3>
-      {error ? <div role="alert" className="text-sm text-red-300">{error}</div> : null}
-      {logs.length === 0 ? (
-        <div className="text-slate-500 text-sm italic text-center mt-4">
-          Las tiradas aparecerán acá cuando alguien use la bandeja o un macro.
+    <section className="surface-panel surface-panel--compact log-panel panel-stack" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Registro de tiradas">
+      <header className="surface-panel__header">
+        <div>
+          <p className="screen-kicker">Actividad</p>
+          <h3 className="surface-panel__title">Últimas tiradas</h3>
         </div>
-      ) : renderedLogs}
-    </div>
+      </header>
+
+      {error ? <div role="alert" className="surface-panel__copy">{error}</div> : null}
+
+      {logs.length === 0 ? <p className="log-entry__empty">Las tiradas aparecerán acá cuando alguien use la bandeja o un macro.</p> : <div className="log-list">{renderedLogs}</div>}
+    </section>
   );
 });
